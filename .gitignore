@@ -1,0 +1,12 @@
+__pycache__/
+*.py[cod]
+*.pyo
+.DS_Store
+Thumbs.db
+*.log
+*.genie
+.*.genie
+.workbuddy/
+.venv/
+venv/
+node_modules/

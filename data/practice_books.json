@@ -1,0 +1,55 @@
+{
+  "generated_at": "2026-11-07",
+  "name": "高中 / 大学练习册与教辅：书目索引与版权状态",
+  "status": "仅书目索引；不提供、不抓取、不分发任何全文或 PDF",
+  "tier": "D（全文不可合法批量获取）",
+  "copyright_summary": "教辅练习册是纯商业出版物，无官方开放目录、无开放许可全文库。网上流传的 PDF 基本为侵权扫描件；已有侵犯著作权罪刑事判例与民事赔偿判例。",
+  "highschool_series": [
+    { "name": "5年高考3年模拟（5·3）", "rights_hint": "北京五三金典图书有限公司（据贵港检察院公告）；首都师范大学出版社/教育科学出版社等涉及不同系列", "fulltext": "不可合法获取" },
+    { "name": "王后雄《教材完全解读》/《考点同步解读》", "rights_hint": "商业出版，权利人另行核定", "fulltext": "不可合法获取" },
+    { "name": "高中必刷题 / 初中必刷题", "rights_hint": "商业出版", "fulltext": "不可合法获取" },
+    { "name": "金考卷 / 天利38套 / 衡水密卷 / 黄冈密卷", "rights_hint": "试卷汇编类，试题与汇编双重权利", "fulltext": "不可合法获取" },
+    { "name": "一遍过 / 优化设计 / 教材帮 / 学霸笔记 / 小题狂练 / 试题调研", "rights_hint": "同步练习类商业教辅", "fulltext": "不可合法获取" },
+    { "name": "龙门专题 / 更高更妙的物理 等专题教辅", "rights_hint": "商业出版", "fulltext": "不可合法获取" },
+    { "name": "历年高考真题汇编", "rights_hint": "试题本身公开，但汇编/解析受版权保护；开源社区整理仓许可不一", "fulltext": "部分可由开源评测集替代（见下）" }
+  ],
+  "university_series": [
+    { "name": "考研数学复习全书 / 张宇 / 汤家凤 / 李永乐系列", "rights_hint": "商业出版", "fulltext": "不可合法获取" },
+    { "name": "大学英语四六级真题 / 考研英语真题汇编", "rights_hint": "商业出版", "fulltext": "不可合法获取" },
+    { "name": "各校期末题库 / 校内习题册", "rights_hint": "校内资料，通常不公开", "fulltext": "不可合法获取" },
+    { "name": "教材配套习题解答（如高数课后答案）", "rights_hint": "衍生作品，权利归出版社/作者", "fulltext": "不可合法获取" }
+  ],
+  "legal_cases": [
+    {
+      "summary": "销售盗版《5年高考3年模拟》3,184 册，以侵犯著作权罪提起公诉",
+      "url": "http://www.guiganggn.jcy.gov.cn/yasf/201904/t20190402_2529614.shtml"
+    },
+    {
+      "summary": "（2018）豫01刑初129号：非法印刷《5年高考3年模拟》《教材全解》129,093 册，判有期徒刑 5 年半、罚金 70 万元",
+      "url": "https://www.cnr.cn/hnfw/hngbxwzx/20180427/t20180427_524213754.shtml"
+    },
+    {
+      "summary": "二手平台售卖教辅电子版判赔 3,500 元；『非商业目的』『侵权即删』不能免责",
+      "url": "https://whkfqfy.hbfy.gov.cn/DocManage/ViewDoc?docId=eb5a7c03-df59-4741-bff3-f852ed604168"
+    },
+    {
+      "summary": "北京二中院调解盗印《5年高考3年模拟》侵权案",
+      "url": "https://bj2zy.bjcourt.gov.cn/article/detail/2009/07/id/4023315.shtml"
+    }
+  ],
+  "legal_alternatives": [
+    { "name": "GAOKAO-Bench / Updates / MM", "url": "https://github.com/OpenLMLab/GAOKAO-Bench", "size": "2,811 题起，含答案解析", "use": "评测与题目结构研究" },
+    { "name": "CJEval", "url": "https://github.com/smilewhc/cjeval", "size": "26,136 题，含知识点/难度/解析", "use": "仅学术研究，禁商用" },
+    { "name": "CMATH", "url": "https://github.com/XiaoMi/cmath", "size": "1.7k 题，CC BY 4.0", "use": "可商用（需署名）" },
+    { "name": "C-Eval", "url": "https://opendatalab.com/OpenDataLab/C-Eval", "size": "13,948 题，52 学科", "use": "CC BY-NC-SA 4.0，禁商用" },
+    { "name": "CMMLU", "url": "https://huggingface.co/datasets/haonan-li/cmmlu", "size": "67 主题", "use": "CC BY-NC-SA 4.0，禁商用" },
+    { "name": "国家中小学智慧教育平台『基础性作业』", "url": "https://basic.smartedu.cn/", "note": "官方免费作业资源，但主要面向 3-9 年级，高中覆盖有限；不得商用" },
+    { "name": "自生成题目", "note": "由模型按课标知识点生成、教师审核后入库；本项目最可控的题源" }
+  ],
+  "project_policy": [
+    "练习册只登记书名/系列/权利人线索，不存正文、不存答案扫描件",
+    "题目来源改为：开源评测集（按许可过滤）+ 自生成题 + 用户自备资料本地导入",
+    "任何对外发布的模型/应用，训练集须先剔除 NC 许可与来源不明的题目",
+    "输出题目必须标注来源，避免把教辅原题洗成『自有题库』"
+  ]
+}

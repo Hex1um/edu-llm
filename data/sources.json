@@ -1,0 +1,290 @@
+{
+  "generated_at": "2026-11-07",
+  "project": "面向中国高中/大学生的大模型 - 资源与合规清单",
+  "scope_note": "本清单区分『书目元数据』与『全文』。合法可做的是书目级全覆盖 + 少量开放许可全文；教材/教辅全文的批量抓取不在范围内。",
+  "tiers": {
+    "A": "书目/元数据/课标：可全量合法获取，可用于知识图谱与课程对齐",
+    "B": "开放许可语料：可直接下载，需逐条核对许可（多数禁商用），可用于研究/试验",
+    "C": "在线只读：仅供人工阅读，不可批量抓取、不可镜像、不可商用",
+    "D": "全文不可合法获取：仅保留书目索引"
+  },
+  "reference_projects": [
+    {
+      "id": "omniedu",
+      "name": "OmniEdu: Open Foundation Models for Learning and Teaching",
+      "repo": "https://github.com/haolpku/Omni-Edu",
+      "paper": "https://arxiv.org/abs/2609.23088",
+      "dataset": "https://huggingface.co/datasets/lhpku20010120/Omni-Edu",
+      "license": "代码 Apache-2.0；模型权重与第三方数据集保留各自许可",
+      "key_numbers": {
+        "models": ["4B", "9B", "27B"],
+        "base_models": ["Qwen3.5-4B-Base", "Qwen3.5-9B-Base", "Qwen3.8-27B"],
+        "candidate_pool": 1340000,
+        "education_samples": 60951,
+        "general_samples": 9048,
+        "final_samples": 69999,
+        "supervised_response_tokens": 15960000,
+        "system_instruction_templates": 20,
+        "context_length": 32768,
+        "training": "全参数 SFT, LLaMA-Factory + DeepSpeed ZeRO-3, 3 epochs, bf16",
+        "hardware": "4B/9B 单节点 8 GPU (H20)；27B 双节点"
+      },
+      "verified_by": "GitHub README + training/README.md 原文 + 论文解读检索",
+      "takeaway": "教育专用能力来自 7 万条能力平衡的高质量样本，而非全量教材语料"
+    },
+    {
+      "id": "deeptutor",
+      "name": "DeepTutor: Lifelong Personalized Tutoring",
+      "repo": "https://github.com/HKUDS/DeepTutor",
+      "docs": "https://deeptutor.info/",
+      "license": "Apache-2.0",
+      "version_observed": "v1.7.2 (2026-11-06)",
+      "key_features": [
+        "agent-native runtime：Chat/Quiz/Research/Visualize/Solve/Mastery Path/Reading/Book/Practice 共享会话上下文",
+        "多引擎 RAG：LlamaIndex(默认 hybrid 向量+BM25, FAISS)、GraphRAG、LightRAG、PageIndex、WeKnora、Tencent IMA、Kiwix、Obsidian",
+        "KB 版本化 version-N 目录、hash-diff 同步、embedding identity 校验",
+        "deeptutor kb eval：Recall@k / Precision@k / nDCG@k / MRR / MAP / Hit@k",
+        "L1 事件 trace / L2 事实 / L3 综合 的文件化可审计记忆",
+        "文档解析：Text-only / MinerU / Docling / Tika / markitdown / PyMuPDF4LLM",
+        "安装：Desktop / Docker(3782) / pip deeptutor[full] / CLI；Python 3.11-3.14, Node 20.9+"
+      ],
+      "verified_by": "GitHub README 原文",
+      "takeaway": "教材全文应做成可引用、可评估、版本化的知识库，而不是塞进模型权重"
+    }
+  ],
+  "sources": [
+    {
+      "id": "moe_highschool_catalog_2023",
+      "name": "教育部 2023 年普通高中国家课程教学用书目录（根据 2017 年版课程标准修订）",
+      "url": "https://www.moe.gov.cn/srcsite/A26/s8001/202305/W020230506368091231067.xlsx",
+      "tier": "A",
+      "type": "官方 XLSX 书目目录",
+      "fields": ["学科", "主编", "编写/出版单位", "书名", "册次", "使用年级", "备注"],
+      "allowed_use": "公开政务信息，可用于构建书目元数据与知识点骨架",
+      "notes": "该 XLSX 含多个 sheet，其中含『2023年普通高中国家课程教学用书目录』；下载后需按 sheet 解析，勿把文件名当作唯一内容。另有 2020 版目录可参考。",
+      "verified_by": "搜索引擎返回的 XLSX 内容摘要"
+    },
+    {
+      "id": "moe_catalog_2020",
+      "name": "教育部 2020 年中小学教学用书目录（含普通高中部分）",
+      "url": "https://www.moe.gov.cn//srcsite/A26/moe_714/202004/W020200417568784790663.xlsx",
+      "tier": "A",
+      "type": "官方 XLSX 书目目录",
+      "allowed_use": "同上，可作为版本/册次交叉校验",
+      "verified_by": "搜索引擎返回的 XLSX 内容摘要"
+    },
+    {
+      "id": "pep_catalog",
+      "name": "人民教育出版社『教材电子版』学科索引（高中）",
+      "url": "https://www.pep.com.cn/",
+      "tier": "A",
+      "type": "出版社官方教材目录",
+      "coverage": "高中：思想政治、语文、数学、英语、物理、化学、生物学、历史、地理、信息技术、通用技术、日语、俄语、艺术、体育与健康、美术",
+      "allowed_use": "书目与学科结构核对；电子版阅读按出版社条款",
+      "verified_by": "官网页面检索摘要"
+    },
+    {
+      "id": "smartedu_basic",
+      "name": "国家中小学智慧教育平台（教材 / 课程教学 / 基础性作业）",
+      "url": "https://basic.smartedu.cn/tchMaterial",
+      "intro": "https://basic.smartedu.cn/introduce",
+      "tier": "C",
+      "type": "教育部官方电子教材在线阅读",
+      "coverage": "小学至高中全学段、全学科、多版本电子教材；另有配套课程视频与部分学段基础性作业",
+      "terms": "『平台所有资源均免费使用，任何单位及个人不得用于商业行为』；平台原生不提供 PDF 下载",
+      "allowed_use": "人工在线阅读、书目核对；不可商用、不可批量下载/镜像",
+      "notes": "据《浙江教育报》2026-10-09 评论：数字教材版权归各出版机构，平台仅取得信息网络传播权，不含复制权与发行权，用户无权下载和传播。部分地区（如海南）已试点开放备课资源原格式下载。",
+      "verified_by": "平台介绍页原文 + 媒体评论检索"
+    },
+    {
+      "id": "smartedu_higher",
+      "name": "国家高等教育智慧教育平台（智慧高教）",
+      "url": "https://higher.smartedu.cn/",
+      "help": "https://higher.smartedu.cn/help",
+      "copyright": "https://higher.smartedu.cn/info/copyright",
+      "tier": "C",
+      "type": "教育部官方高教课程/教材资源索引",
+      "coverage": "3.1 万门优质在线课程、6.5 万余条教材与资源条目，覆盖 14 个学科门类、92 个专业类",
+      "terms": "《知识产权声明》：网站运行数据归教育部所有、未经允许不公开；禁止建立镜像、禁止复制/抄袭；『任何媒体、网站和商业机构不得利用本网站发布的内容』",
+      "allowed_use": "课程大纲、教材书目、知识点结构的人工核对；不可批量抓取/镜像/商用",
+      "verified_by": "平台帮助中心与知识产权声明检索摘要"
+    },
+    {
+      "id": "hep_ebook",
+      "name": "高教书苑 / 高教社产品信息检索系统（电子书）",
+      "url": "https://ebook.hep.com.cn/",
+      "alt_url": "http://xuanshu.hep.com.cn/",
+      "tier": "C",
+      "type": "出版社 DRM 在线阅读",
+      "coverage": "高教社数千种教材电子版，2020 年曾免费开放 3000 余种在线阅读",
+      "terms": "内容加密处理、以在线页面浏览方式使用，不提供内容下载",
+      "allowed_use": "人工在线阅读与书目核对",
+      "verified_by": "高教社产品手册 + 高校图书馆指引检索"
+    },
+    {
+      "id": "university_publisher_free_portals",
+      "name": "各高校图书馆汇总的出版社免费电子教材入口",
+      "url": "https://www.gdep.edu.cn/tsg/info/1099/2206.htm",
+      "tier": "C",
+      "type": "入口索引",
+      "includes": [
+        "人大芸窗数字教材平台 http://www.rdyc.cn/",
+        "中国建筑数字图书馆（约 1923 种教材可免费在线阅读）",
+        "华信 SPOC / 悦读 / 悦学 https://www.hxedu.com.cn/",
+        "机工大讲堂 https://www.cmpedu.com/",
+        "外研在线 http://heep.unipus.cn/support/",
+        "上海交大社慕知悦读",
+        "东北财大社 https://www.idufep.com/ebook/",
+        "中科云教育 http://www.coursegate.cn",
+        "浙大社立方书 APP"
+      ],
+      "allowed_use": "人工在线阅读；各平台条款独立，多为部分章节试读",
+      "verified_by": "高校图书馆公开页面检索"
+    },
+    {
+      "id": "k12textbook_opendatalab",
+      "name": "opendatalab/K12textbook",
+      "url": "https://huggingface.co/datasets/opendatalab/K12textbook",
+      "tier": "B",
+      "type": "K12 教材文本语料",
+      "license": "apache-2.0（数据集卡标注）",
+      "size": "23.8 MB，200+ 册 K12 教科书，中英双语，覆盖小学/初中/高中",
+      "allowed_use": "学术研究、非商业用途；用于教材语境理解/微调实验",
+      "caveat": "数据集许可不等于教材原文著作权已清理；原文著作权仍归出版社，商用需另行授权。本次未能直连 HF 页面复核文件结构，下载前需核验。",
+      "verified_by": "HF 数据集卡检索摘要 + 第三方数据集目录"
+    },
+    {
+      "id": "gaokao_bench",
+      "name": "GAOKAO-Bench / Updates / MM",
+      "url": "https://github.com/OpenLMLab/GAOKAO-Bench",
+      "tier": "B",
+      "type": "高考真题评测集",
+      "size": "2010-2022 全国卷共 2,811 题（1,781 客观 / 1,030 主观；选择题 1,781、填空 218、解答 812），含题干/答案/解析/年份/科目/分值",
+      "related": ["GAOKAO-Bench-Updates（2023 年后选择题）", "GAOKAO-MM（多模态高考题）"],
+      "allowed_use": "评测与题目结构研究；试题本身版权需另行确认，商用前谨慎",
+      "verified_by": "GitHub README 检索摘要"
+    },
+    {
+      "id": "cjeval",
+      "name": "CJEval（中文初中考题，可迁移知识点体系）",
+      "url": "https://github.com/smilewhc/cjeval",
+      "tier": "B",
+      "type": "带知识点/难度/解析标注的题库",
+      "size": "26,136 题，10 学科，5 类题型；train 20,820 / valid 2,106 / test 3,210",
+      "terms": "『intended solely for academic and research purposes. Commercial use ... strictly prohibited』",
+      "allowed_use": "仅学术研究；含 ques_knowledges 字段，适合做知识点图谱与错因分类的实验",
+      "verified_by": "GitHub README 检索摘要"
+    },
+    {
+      "id": "cmath",
+      "name": "CMATH（小米，中文小学数学应用题）",
+      "url": "https://github.com/XiaoMi/cmath",
+      "tier": "B",
+      "type": "数学应用题基准",
+      "size": "1.7k 题，含干扰信息鲁棒性子集",
+      "license": "代码 MIT；数据集 CC BY 4.0",
+      "allowed_use": "研究与评测，CC BY 4.0 允许商用但需署名",
+      "verified_by": "GitHub README 检索摘要"
+    },
+    {
+      "id": "ceval",
+      "name": "C-Eval",
+      "url": "https://opendatalab.com/OpenDataLab/C-Eval",
+      "tier": "B",
+      "type": "中文综合评测集",
+      "size": "13,948 道多选题，52 学科，4 个难度级别（含高中/大学学科）",
+      "license": "CC BY-NC-SA 4.0",
+      "allowed_use": "非商业研究；禁商用、衍生需同许可",
+      "verified_by": "数据集目录页检索摘要"
+    },
+    {
+      "id": "cmmlu",
+      "name": "CMMLU",
+      "url": "https://huggingface.co/datasets/haonan-li/cmmlu",
+      "tier": "B",
+      "type": "中文多学科评测集",
+      "size": "67 个主题，覆盖基础到专业（含 high_school_*、college_*、machine_learning 等）",
+      "license": "CC BY-NC-SA 4.0",
+      "allowed_use": "非商业研究；禁商用、衍生需同许可",
+      "verified_by": "数据集卡检索摘要"
+    },
+    {
+      "id": "agieval",
+      "name": "AGIEval",
+      "url": "https://github.com/ruixiangcui/AGIEval",
+      "tier": "B",
+      "type": "人类考试评测集（含高考各科）",
+      "size": "v1.1 共 8,062 题 / 20 任务，中英双语",
+      "license": "仓库代码与标注 MIT；原始试题版权归各考试机构",
+      "allowed_use": "研究评测；商业再分发试题需单独确认授权",
+      "verified_by": "第三方数据源目录检索摘要"
+    },
+    {
+      "id": "omniedu_dataset",
+      "name": "OmniEdu 公开训练数据集",
+      "url": "https://huggingface.co/datasets/lhpku20010120/Omni-Edu",
+      "tier": "B",
+      "type": "能力平衡的教育指令数据集",
+      "size": "69,999 条 / 15.96M 监督 token，含四类能力标签与 20 种任务指令",
+      "allowed_use": "复现/对照实验；需按其数据集卡与上游来源许可核对",
+      "verified_by": "OmniEdu 论文解读与项目页检索"
+    },
+    {
+      "id": "gaokao_open_repos",
+      "name": "历年高考真题开源整理仓（线索，未逐一核验）",
+      "url": "https://t.urongda.com/more",
+      "tier": "B",
+      "type": "第三方开源整理",
+      "includes": ["deekur/gaokaomath（1952-2025 高考数学真题 PDF）", "rainewhk/gaokao（按学科/年份/试卷结构化）", "Yan-Zero/MathPaper（LaTeX 试卷模板）"],
+      "caveat": "均为社区整理，试题与解析的版权状态未清理；仅作研究线索，落地前必须逐仓核对 LICENSE 与来源",
+      "verified_by": "第三方资源页检索摘要"
+    },
+    {
+      "id": "dzkbw",
+      "name": "电子课本网（第三方电子教材导航）",
+      "url": "http://www.dzkbw.com/",
+      "tier": "C",
+      "type": "第三方教材导航",
+      "caveat": "非官方，教材 PDF 版权状态不明；不建议抓取，仅作书目检索辅助",
+      "verified_by": "南方+ 电子教材获取攻略检索"
+    },
+    {
+      "id": "zxx_platform_statement",
+      "name": "国家中小学智慧教育平台『严正声明』/ 介绍页",
+      "url": "https://basic.smartedu.cn/introduce",
+      "tier": "C",
+      "type": "合规依据",
+      "quote": "平台所有资源均免费使用，任何单位及个人不得用于商业行为。",
+      "verified_by": "官网原文检索"
+    }
+  ],
+  "legal_cases": [
+    {
+      "case": "贵港市港南区检察院：销售盗版《5年高考3年模拟》",
+      "detail": "收缴盗版教辅 3,184 册，销售额 7 万余元，以侵犯著作权罪提起公诉；著作权人为北京五三金典图书有限公司",
+      "url": "http://www.guiganggn.jcy.gov.cn/yasf/201904/t20190402_2529614.shtml"
+    },
+    {
+      "case": "（2018）豫01刑初129号：非法印刷高考教辅",
+      "detail": "《5年高考3年模拟》《教材全解》等 129,093 册被认定侵权；主犯判处有期徒刑 5 年半、罚金 70 万元，河南高院终审维持",
+      "url": "https://www.cnr.cn/hnfw/hngbxwzx/20180427/t20180427_524213754.shtml"
+    },
+    {
+      "case": "武汉经开法院：二手平台售卖教辅/词典电子版",
+      "detail": "教辅电子版判赔 3,500 元，《现代汉语词典》PDF 判赔 2,500 元；『非商业目的』『侵权即删』不能免责",
+      "url": "https://whkfqfy.hbfy.gov.cn/DocManage/ViewDoc?docId=eb5a7c03-df59-4741-bff3-f852ed604168"
+    },
+    {
+      "case": "《浙江教育报》评论：数字教材版权边界",
+      "detail": "平台仅取得信息网络传播权，不含复制权与发行权，用户无权下载和传播；部分省份试点开放备课资源原格式下载",
+      "url": "https://zjjyb.cn/html/2026-10/09/content_155853_3902841.htm"
+    }
+  ],
+  "policy_for_this_project": [
+    "不批量抓取任何教材/教辅全文，不建镜像站，不分发原文 PDF",
+    "全文只接受用户自己持有的文件：本地导入、本地索引、不上传、不分发",
+    "产品化前按许可过滤：剔除 CC BY-NC-SA / 仅学术用途的数据（C-Eval、CMMLU、CJEval 等）",
+    "所有回答必须能溯源到『书名 + 版本 + 册次 + 页码/章节』，不把检索片段伪装成模型记忆",
+    "书目/课标/知识点图谱作为可全量构建的第一层，且不承载原文"
+  ]
+}

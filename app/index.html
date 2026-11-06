@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate, max-age=0">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<title>学序 · 教材锚定辅导工作台 v0.1.0</title>
+<link rel="stylesheet" href="style.css?v=0.1.0">
+</head>
+<body>
+<header class="topbar">
+  <div class="brand">
+    <span class="logo">学</span>
+    <div>
+      <h1>学序 <small>Textbook-Grounded Tutor</small></h1>
+      <p class="sub">高中数理化 · 大学理工 ｜ 教材锚定 / 错因诊断 / 可溯源引用</p>
+    </div>
+  </div>
+  <div class="topright">
+    <span class="badge" id="modeBadge">检索演示模式</span>
+    <span class="ver">v0.1.0</span>
+  </div>
+</header>
+
+<div class="layout">
+  <!-- 左：配置 -->
+  <aside class="panel left">
+    <section>
+      <h2>教学模式 <span class="hint">OmniEdu 式教学指令</span></h2>
+      <div id="modeList" class="mode-grid"></div>
+    </section>
+
+    <section>
+      <h2>学科范围</h2>
+      <div class="row">
+        <select id="stageFilter">
+          <option value="all">全部学段</option>
+          <option value="highschool">高中</option>
+          <option value="university">大学</option>
+        </select>
+        <select id="subjectFilter"><option value="all">全部学科</option></select>
+      </div>
+      <p class="hint" id="scopeCount"></p>
+    </section>
+
+    <section>
+      <h2>知识库来源</h2>
+      <ul class="srclist" id="sourceList"></ul>
+      <div class="import-box">
+        <label class="btn ghost wide" for="fileInput">导入自备资料（.txt / .md / .json）</label>
+        <input id="fileInput" type="file" accept=".txt,.md,.markdown,.json,text/plain,application/json" multiple hidden>
+        <p class="hint">文件只在浏览器本地读取与切分，<b>不上传、不分发</b>。PDF 请先转成文本：<code>python scripts/pdf_to_text.py 教材.pdf</code></p>
+      </div>
+    </section>
+
+    <section>
+      <h2>模型接入 <span class="hint">OpenAI 兼容</span></h2>
+      <input id="apiBase" type="text" placeholder="https://.../v1" autocomplete="off">
+      <input id="apiKey" type="password" placeholder="API Key（仅存本机 localStorage）" autocomplete="off">
+      <input id="apiModel" type="text" placeholder="模型名，如 qwen-plus / deepseek-chat" autocomplete="off">
+      <div class="row">
+        <button class="btn" id="saveApi">保存</button>
+        <button class="btn ghost" id="clearApi">清除</button>
+      </div>
+      <p class="hint">未配置时为「检索演示模式」：只展示知识库命中片段，不伪装成模型回答。</p>
+    </section>
+
+    <section>
+      <h2>开放语料与许可过滤</h2>
+      <ul class="srclist tight" id="licenseList"></ul>
+      <p class="hint">标记「禁商用」的数据集仅用于本地研究，导出产品前必须剔除。</p>
+    </section>
+  </aside>
+
+  <!-- 中：对话 -->
+  <main class="panel center">
+    <div id="chat" class="chat" aria-live="polite"></div>
+    <div class="composer">
+      <div class="quick" id="quickRow"></div>
+      <textarea id="input" rows="3" placeholder="输入一道题、一个概念，或贴上你的错误解答…（Enter 发送，Shift+Enter 换行）"></textarea>
+      <div class="composer-foot">
+        <span class="hint" id="statusLine">就绪</span>
+        <button class="btn primary" id="sendBtn">发送</button>
+      </div>
+    </div>
+  </main>
+
+  <!-- 右：证据与错题 -->
+  <aside class="panel right">
+    <section>
+      <h2>本轮引用 <span class="hint">可溯源</span></h2>
+      <div id="citations" class="cites"><p class="hint">提问后显示命中的知识点与章节。</p></div>
+    </section>
+    <section>
+      <h2>知识点地图 <span class="hint">含先修关系</span></h2>
+      <div id="kgList" class="kglist"></div>
+    </section>
+    <section>
+      <h2>错题本 <span class="hint">本机保存</span></h2>
+      <div class="row"><input id="wrongQ" type="text" placeholder="题目摘要"><input id="wrongR" type="text" placeholder="错因"></div>
+      <button class="btn ghost wide" id="addWrong">加入错题本</button>
+      <ul class="wronglist" id="wrongList"></ul>
+    </section>
+  </aside>
+</div>
+
+<script src="knowledge.js?v=0.1.0"></script>
+<script src="app.js?v=0.1.0"></script>
+</body>
+</html>

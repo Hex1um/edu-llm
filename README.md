@@ -1,0 +1,196 @@
+# 面向中国高中 / 大学生的大模型：调研结论与实施路线（v0.1）
+
+> **GitHub**：<https://github.com/Hex1um/edu-llm> ｜ **在线演示**：<https://xuexu-tutor.app.workbuddy.host/?sharecode=JIHHAP7ZVP>
+> 调研日期：2026-11-07 ｜ 参考项目：`haolpku/Omni-Edu`、`HKUDS/DeepTutor`
+> 结论先说：**不可能合法地"搜到所有中国高中和大学课本与练习册全文"，而且并不必要。**
+> 可行且不违规的形态是：**书目 / 课标知识图谱做"全量"，全文语料做"少量合法 + 用户自备"，模型用开源基座做轻量适配，应用做成 RAG 辅导工作台。**
+
+---
+
+## 1. 两个参考项目实际在做什么
+
+| 维度 | Omni-Edu（北大 OpenDCAI） | DeepTutor（HKUDS） | 对本项目的意义 |
+|---|---|---|---|
+| 定位 | **模型层**：开源教育多模态基座模型家族 | **应用层**：agent-native 终身个性化学习工作台 | 一个管"会不会教"，一个管"怎么学" |
+| 规模 | 4B / 9B / 27B，基于 Qwen3.5-4B-Base、9B-Base、Qwen3.8-27B | v1.7.2，约 20 万行级重构，Web / Desktop / CLI / SDK / Docker | 不需要自建模型栈 |
+| 数据 | 100+ 来源、约 **134 万**候选 → 清洗审计后 **60,951** 教育样本 + 9,048 通用 = **69,999 条 / 15.96M 监督 token** | 用户上传文档 / 链接文件夹 / GitHub / 文档站 / Kiwix / Obsidian / WeKnora / IMA 等 | **关键洞察：教育模型靠 7 万条高质量样本，不是靠"爬全量教材"** |
+| 方法 | 六阶段数据管线（能力分类 → 确定性清洗去污染 → LLM 语义审计+重写 → 细粒度打分 → token 预算多样性选择 → 教学指令分配）；20 种 system 指令区分解题 / 诊断 / 苏格拉底提问 / 讲解；四类能力：学科能力、课程锚定、诊断推理、教学支架 | 多引擎 RAG（LlamaIndex 默认 hybrid 向量+BM25、GraphRAG、LightRAG、PageIndex、WeKnora 等）；KB 版本化 `version-N`、hash-diff 同步；`kb eval` 报 Recall@k / nDCG / MRR / MAP；L1/L2/L3 文件化可审计记忆；Chat / Quiz / Solve / Mastery Path / Reading / Book / Practice | 数据配方 + 检索/记忆架构可直接照搬 |
+| 训练 | 全参数 SFT，LLaMA-Factory + DeepSpeed ZeRO-3，32,768 上下文，3 epoch；**4B/9B 单机 8 卡，27B 两节点** | 不训练模型，接任意 OpenAI 兼容 provider / 本地模型 | 全参训练对个人不现实；LoRA 或直接调 API 才现实 |
+| 许可 | 代码 Apache-2.0；**模型权重与第三方数据集保留各自许可** | Apache-2.0 | 都要逐个核对上游数据许可 |
+
+**一句话**：OmniEdu 证明了"教育能力来自数据结构设计，而非数据体量"；DeepTutor 证明了"教材全文更适合放在可检索知识库，而不是塞进权重"。
+
+---
+
+## 2. "所有课本和练习册"到底有多大，能拿到多少
+
+| 对象 | 规模（可核查口径） | 书目级（书名/版本/册次） | 全文级 |
+|---|---|---|---|
+| 高中教材 | 教育部《普通高中国家课程教学用书目录》：13+ 学科 × 多版本（人教 A/B、北师大、苏教、湘教、鄂教、鲁科、粤教、教科、外研、译林、中图…）× 必修 / 选择性必修 / 选修 ≈ 数百册 | ✅ **可 100% 覆盖**，教育部 XLSX 公开可下载 | ⚠️ 官方平台仅在线浏览；仅约 200+ 册有开放语料 |
+| 大学教材 | 智慧高教：**14 个学科门类 / 92 个专业类全覆盖**，3.1 万门在线课程、6.5 万余条教材等资源；本科专业 800+，教材品种数万且年年改版 | ✅ 可由智慧高教 + 出版社书目覆盖 | ❌ 各社 DRM 在线阅读，不提供下载 |
+| 练习册 / 教辅 | 五三、王后雄、必刷题、金考卷…无官方开放目录，纯商业出版物 | ⚠️ 只能人工整理书目索引 | ❌ **无合法全文来源**（见第 3 节司法案例） |
+
+### 可达性分级（本项目的取数边界）
+
+| 级别 | 含义 | 代表来源 |
+|---|---|---|
+| **A** | 书目 / 元数据 / 课标，可全量合法获取 | 教育部教学用书目录 XLSX、人教社教材电子版目录、智慧高教教材索引、各出版社书目、普通高中课程标准（2017 年版 2020 修订） |
+| **B** | 可直接下载、许可明确的开放语料（**有限**） | `opendatalab/K12textbook`（Apache-2.0，200+ 册 K12 教材文本，23.8 MB）、GAOKAO-Bench（2,811 题）、CJEval（26,136 题）、CMATH、C-Eval / CMMLU / AGIEval、OmniEdu 训练数据集、历年高考真题开源仓、OI Wiki 等开放技术文档 |
+| **C** | 在线只读，**不可批量抓取 / 不可商用** | 国家中小学智慧教育平台、高教书苑、国家高等教育智慧教育平台、各出版社试读章节、中国大学 MOOC / 学堂在线课件 |
+| **D** | 全文不可合法获得 | 商业教辅练习册、大学教材全书 PDF、网盘流传扫描版 |
+
+详见 `data/sources.json`（含逐条 URL、许可、允许用途、核验说明）。
+
+---
+
+## 3. 版权与合规：三条硬约束
+
+1. **"免费" ≠ "可训练 / 可商用"**。国家中小学智慧教育平台介绍页明文："平台所有资源均免费使用，**任何单位及个人不得用于商业行为**"；且据《浙江教育报》分析，平台从出版社取得的仅"信息网络传播权"，**不含复制权、发行权，用户无权下载和传播**。智慧高教《知识产权声明》进一步禁止镜像、复制，并规定"任何媒体、网站和商业机构不得利用本网站发布的内容"。
+2. **数据集许可证 ≠ 原作品版权已清理**。`K12textbook` 标注 Apache-2.0，但教材原文著作权仍归出版社；C-Eval / CMMLU 为 **CC BY-NC-SA 4.0**（禁商用、衍生需同许可），CJEval 明确"仅限学术研究，禁止商业使用"，AGIEval 代码 MIT 但试题本身版权另计。**做产品前必须逐条过滤 NC 条款数据**。
+3. **教辅全文几乎没有合法路径，且已有刑事判例**：
+   - 贵港港南区检察院：销售盗版《5年高考3年模拟》3,184 册，以**侵犯著作权罪**提起公诉（著作权人：北京五三金典图书有限公司）。
+   - 郑州中院（2018）豫01刑初129号：非法印刷《5年高考3年模拟》《教材全解》129,093 册，**判处有期徒刑 5 年半、罚金 70 万元**，河南高院终审维持。
+   - 武汉经开法院：二手平台卖教辅电子版判赔 3,500 元；卖《现代汉语词典》PDF 判赔 2,500 元；"非商业目的""侵权即删"**不能免责**。
+
+> 因此本项目**不做**批量抓取教材/教辅全文、不做镜像站、不分发任何原文 PDF。教材全文只接受"用户自己持有的文件，本地导入、本地索引、不上传不分发"。
+
+---
+
+## 4. 建议架构（把两个参考项目拼起来）
+
+```
+L0  课程知识底座（可做到"全量"，且完全合法）
+    教材书目元数据 → 学科/版本/册次 → 章节 → 知识点 → 课标要求 → 先修关系图谱
+    这是"所有课本"在工程上唯一可实现的形态：覆盖全，但不存原文
+
+L1  检索与资料层（借鉴 DeepTutor）
+    用户自备 PDF 本地导入 + 开放语料(B级) + 开源题库
+    → MinerU / Docling 解析 → 章节级切分 → BGE-M3 向量 + BM25 混合检索
+    → 版本化索引 / 引用到"书名+册次+页码" → kb eval 评估召回
+
+L2  教学智能体（借鉴 OmniEdu + DeepTutor）
+    20 类教学指令：直接解题 / 分步提示 / 错因诊断 / 苏格拉底追问 / 讲解 / 出题
+    四能力：学科能力 · 课程锚定 · 诊断推理 · 教学支架
+    错题本 + 掌握度 + L1/L2/L3 可审计记忆 + 间隔复习
+
+L3  模型层（不从头训练）
+    默认：Qwen / DeepSeek / GLM API，或本地 OmniEdu-4B（单卡可跑）
+    进阶：QLoRA 在 4B 上做 1~5 万条中文教育指令 SFT，产出自己的 checkpoint
+    不做：全参数 SFT（需 8×H20）、从零预训练（语料/算力/合规全不具备）
+```
+
+配套工具：LLaMA-Factory（SFT）、vLLM（推理）、BGE-M3（embedding）、FAISS + BM25（检索）、MinerU / Docling（PDF 解析）、OpenCompass / omniedu SDK（评测）。
+
+---
+
+## 5. 三档路线与资源估算
+
+| 路线 | 交付物 | 算力 / 成本 | 可行性 | 主要风险 |
+|---|---|---|---|---|
+| **A. 应用原型（建议先做）** | 全量书目/知识点骨架 + 高中数学试点 RAG 辅导台（问答带引用、错因诊断、错题本） | 笔记本 + 一个模型 API Key，零训练 | ✅ 单人可做，几天出可用版本 | 知识点图谱需人工/半自动构建 |
+| **B. 微调实验** | QLoRA 4B checkpoint + 前后评测对比（GAOKAO-Bench / C-Eval 子集） | 单张 24G 卡或云 GPU，数小时~1 天 | ✅ 可作为课程项目/简历亮点 | 训练集必须剔除 NC 许可数据；过拟合评测集 |
+| **C. 全参 SFT / 自研基座** | 自有 27B 权重 | 8×H20 起，27B 双节点；数据清洗需 122B 级审核模型 | ❌ 个人不可行 | 直接复用 OmniEdu 开源权重更划算 |
+| **D. 从零预训练** | — | 万亿 token 级语料 + 千卡集群 | ❌ 不可行 | 且中文教材语料本身不合法 |
+
+**推荐顺序**：A →（有 GPU 再做）B；C/D 直接放弃。
+
+---
+
+## 6. 本次已交付文件
+
+| 文件 | 内容 |
+|---|---|
+| `README.md` | 本调研结论、架构与路线 |
+| `data/sources.json` | 逐条资源清单：URL、许可分级、允许用途、司法案例 |
+| `data/catalog_highschool.json` | 高中教材书目骨架（学科 × 版本 × 册次）+ 官方目录 XLSX 入口 |
+| `data/catalog_university.json` | 大学 14 学科门类 / 92 专业类 + 公共基础课典型教材骨架 |
+| `data/practice_books.json` | 教辅练习册书目索引 + 版权状态 + 合法替代方案 |
+| `data/knowledge_graph.json` | 22 个自撰知识点：教材章节映射、先修关系、常见错误、例题 |
+| `app/index.html` / `style.css` / `app.js` | 零依赖 RAG 辅导工作台前端 |
+| `app/knowledge.js` | 由上述 JSON 自动生成的内联运行时数据（规避 file:// 的 CORS 限制） |
+| `scripts/build_knowledge_js.py` | 知识图谱 → 前端 JS 的同步脚本 |
+| `scripts/serve.py` | 本地服务器，全量 `Cache-Control: no-store` |
+| `scripts/pdf_to_text.py` | 自备教材 PDF → 本地纯文本（可选 PyMuPDF） |
+
+> 目录文件均为**骨架 + 权威来源 URL**，不是伪造的逐册全量清单；完整逐册字段应从教育部 XLSX / 智慧高教接口解析后补齐。
+
+---
+
+## 7. 已确认方向（2026-11-07）
+
+| 决策项 | 选择 |
+|---|---|
+| 交付层级 | **A：RAG 辅导工作台**（不训练模型，用现成开源基座/API） |
+| 首批范围 | **高中数理化 + 大学理科 / 工科** |
+| 全文来源 | **用户自备资料（本地导入）+ 开放语料（按许可过滤 NC 条款）** |
+
+---
+
+## 8. v0.1.0 原型：学序（Textbook-Grounded Tutor）
+
+### 运行
+
+```bash
+# 方式一：直接双击 app/index.html —— 检索演示模式可用
+# 方式二（推荐，服务端强制禁用缓存）：
+python server.py                     # 默认 8000，浏览器打开 http://127.0.0.1:8000/
+PORT=3782 python server.py           # 自定义端口（云端沙箱也是这个入口）
+python scripts/serve.py 8000         # 等价的兼容入口
+```
+
+`server.py` 绑定 `0.0.0.0` 并读取 `PORT` 环境变量，服务目录固定为 `app/`；所有响应强制 `no-store`。云端发布即用此入口（`startCmd: python3 server.py`）。
+
+接模型：左栏填 OpenAI 兼容的 endpoint / key / model（Qwen、DeepSeek、GLM 均可）。密钥只存本机 `localStorage`，请求带 `cache: 'no-store'`。**未配置模型时进入「检索演示模式」：只返回命中的知识点片段并明确标注，不伪装成模型回答。**
+
+### 已实现
+
+| 能力 | 说明 |
+|---|---|
+| 课程锚定 | 22 个自撰知识点（高中数学 6 / 物理 4 / 化学 4；大学高数 2 / 线代 2 / 概率 1 / 大物 1 / 数据结构 1 / 程序设计 1），每个带教材章节映射、先修关系、常见错误、自撰例题 |
+| 检索 | 中文 BM25（单字 + bigram），按学段 / 学科过滤，返回可溯源引用（知识点 + 章节 + 来源 + 许可） |
+| 教学指令 | 6 类：直接解题 / 分步提示（禁止提前给答案）/ 错因诊断（须依据学生作答）/ 苏格拉底追问 / 概念讲解 / 生成练习；system prompt 强制只依据检索片段、用 `[编号]` 引用、不编造教材原文 |
+| 自备资料 | TXT / MD / JSON 由浏览器 FileReader 本地读取并切分，**不上传、不分发**；PDF 用 `scripts/pdf_to_text.py` 先转文本 |
+| 学习记录 | 错题本（localStorage，关联知识点 + 复习日期）、知识点地图 |
+| 合规面板 | 开放语料清单显式标注「禁商用 / 可商用*」，提示产品化前剔除 NC 许可数据 |
+| 缓存治理 | HTML meta 三件套 + 资源 `?v=0.1.0` + 服务端全量 `no-store` + API 请求 `cache: 'no-store'` |
+
+### 实测结果（2026-11-07）
+
+```
+JSON OK  data/catalog_highschool.json / catalog_university.json / knowledge_graph.json
+         / practice_books.json / sources.json        （5/5 通过 json.load）
+OK: app/knowledge.js  nodes=22                      （build_knowledge_js.py 生成）
+node --check app/app.js / app/knowledge.js          （通过，无输出即无语法错误）
+HTTP status      : 200
+Cache-Control    : no-store, no-cache, must-revalidate, max-age=0
+Pragma           : no-cache   |   Expires: 0
+versioned css/js : True       |   no-cache meta: True
+python -m py_compile server.py scripts/*.py                    （4/4 通过）
+root /           : 200  Cache-Control: no-store, ...           （本地单端口实测）
+/app.js?v=0.1.0 : 200  Cache-Control: no-store, ...           （静态资源同样禁缓存）
+GitHub API       : 200  login=Hex1um  scopes=repo             （建仓认证）
+```
+
+### 已知限制 / 下一步
+
+1. 知识点是**骨架**不是全量书目；下一步写解析器读教育部 XLSX → 逐册 JSON + 章节→知识点映射。
+2. 检索目前只有 BM25；下一步加 BGE-M3 向量 + FAISS 混合检索，并补 `kb eval`（Recall@k / nDCG / MRR）。
+3. 暂未微调模型；路线 B 需要 24G 显卡或云 GPU，且训练集必须先剔除 NC 许可数据。
+4. 已发布上线，见第 9 节。线上版是**纯前端 + 检索演示模式**，不内置任何 API Key；每位访客需自行在左栏填自己的模型配置。
+5. 浏览器直连部分模型 API 可能受 CORS 限制，建议经 `server.py` 打开；若仍被拦，需加一层本地代理。
+
+---
+
+## 9. 发布信息（2026-11-07）
+
+| 项 | 值 |
+|---|---|
+| GitHub 仓库 | <https://github.com/Hex1um/edu-llm>（公开，MIT，默认分支 `main`） |
+| 云服务分享链接 | <https://xuexu-tutor.app.workbuddy.host/?sharecode=JIHHAP7ZVP> |
+| 部署形态 | `http-service`，Python 单端口，`startCmd: python3 server.py`，`PORT` 由平台注入 |
+| 服务根目录 | `app/`（只暴露前端，仓库里的 `data/`、`scripts/` 不经 HTTP 发布） |
+| 缓存治理 | 服务端全量 `Cache-Control: no-store, no-cache, must-revalidate, max-age=0` + `Pragma: no-cache` + `Expires: 0`；另有 `app/_headers` 静态兜底、HTML meta 三件套、资源 `?v=0.1.0`、API 请求 `cache: 'no-store'` |
+
+仓库文件：`app/`（前端）、`data/`（5 份资源/合规/知识点 JSON）、`scripts/`（构建、PDF 转换、兼容入口）、`server.py`、`LICENSE`、`.gitignore`。
+
+> 版权边界不变：本仓库代码与自撰内容按 MIT 开源；`data/*.json` 列出的第三方教材、题库与评测集保留各自权利，本项目不分发任何教材或教辅原文。
