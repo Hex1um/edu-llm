@@ -1,4 +1,4 @@
-/* 学序 v0.1.0 — 零依赖教材锚定辅导工作台
+/* 学序 v0.2.0 — 零依赖教材锚定辅导工作台
    设计参考：OmniEdu（能力/教学指令分类、课程锚定、错因诊断）
              DeepTutor（可溯源 RAG、版本化来源、错题与掌握度）
    合规：不内置任何教材/教辅原文；全文仅来自用户本地导入，不上传、不分发。 */
@@ -6,7 +6,7 @@
   'use strict';
 
   var KG = window.KG || { nodes: [] };
-  var VERSION = '0.1.0';
+  var VERSION = '0.2.0';
   var LS_API = 'xuexu.api.' + VERSION;
   var LS_WRONG = 'xuexu.wrongbook.' + VERSION;
 
@@ -38,7 +38,8 @@
   var state = {
     mode: 'solve', stage: 'all', subject: 'all',
     api: null, docs: [], imported: [], hits: [],
-    history: [], wrong: [], busy: false
+    history: [], wrong: [], busy: false,
+    activeBook: null, activeChapter: null
   };
 
   var $ = function (id) { return document.getElementById(id); };
@@ -51,13 +52,15 @@
 
   /* ---------- 文档与检索（中文单字 + bigram，BM25） ---------- */
   function nodeToDoc(n) {
+    var dd = (n.deep_dive || []).map(function (x) { return x.title + ' ' + x.text.slice(0, 120); }).join(' ');
     return {
       id: n.id, title: n.name, chapter: n.chapter || '—',
       stage: n.stage, subject: n.subject, node: n,
-      source: '内置知识点骨架（本项目自撰）', license: 'self-authored',
-      text: [n.name, n.chapter, n.summary, n.formula, (n.misconceptions || []).join(' '),
+      source: n.featured ? '精讲专题（人工精校）' : '章节骨架（自撰）', license: 'self-authored',
+      text: [n.name, n.book, n.unit, n.chapter, n.summary, n.formula, n.why, n.pitfall,
+             (n.concepts || []).join(' '), (n.misconceptions || []).join(' '),
              n.example ? n.example.q + ' ' + n.example.a : '',
-             (n.prerequisites || []).join(' ')].join('\n')
+             (n.prerequisites || []).join(' '), dd].join('\n')
     };
   }
   function tokenize(s) {
@@ -109,9 +112,15 @@
   function contextBlock(hits) {
     return hits.map(function (h, i) {
       var d = h.doc;
+      var n = d.node;
       return '[' + (i + 1) + '] ' + d.title + '｜' + d.chapter + '｜来源:' + d.source +
-        '\n' + (d.node ? '讲解: ' + d.node.summary + '\n常见错误: ' + (d.node.misconceptions || []).join('；') +
-          '\n先修: ' + (d.node.prerequisites || []).join(', ') : d.text.slice(0, 600));
+        '\n' + (n ? '讲解: ' + n.summary +
+          '\n核心关系: ' + (n.formula || '—') +
+          '\n加深理解（本质直觉）: ' + ((n.deep_dive || [])[0] ? n.deep_dive[0].text : n.why || '—') +
+          '\n常见错误: ' + (n.misconceptions || []).join('；') +
+          '\n先修: ' + (n.prerequisites || []).join(', ') +
+          '\n本章可用练习: ' + (n.questions || []).length + ' 道（自生成，需教师审核）'
+          : d.text.slice(0, 600));
     }).join('\n\n');
   }
 
@@ -136,8 +145,11 @@
   }
   function renderSources() {
     var ncCount = OPEN_SOURCES.filter(function (s) { return s.nc; }).length;
+    var st = KG.stats || {};
     $('sourceList').innerHTML =
-      '<li><b>内置知识点骨架</b><span>' + state.docs.length + ' 节点 · 自撰</span></li>' +
+      '<li><b>教材章节骨架</b><span>' + (st.textbooks || 0) + ' 种 · ' + (st.chapters || 0) + ' 章</span></li>' +
+      '<li><b>自生成练习题</b><span>' + (st.questions || 0) + ' 道 · 需教师审核</span></li>' +
+      '<li><b>精讲章节 / 总节点</b><span>' + (st.featured_chapters || 0) + ' / ' + state.docs.length + '</span></li>' +
       '<li><b>用户自备资料</b><span>' + state.imported.length + ' 片段 · 仅本机</span></li>' +
       '<li><b>开放语料索引</b><span>' + OPEN_SOURCES.length + ' 项 · ' + ncCount + ' 项禁商用</span></li>';
     $('licenseList').innerHTML = OPEN_SOURCES.map(function (s) {
@@ -168,6 +180,101 @@
       };
     });
   }
+  /* ---------- 教材章节浏览器：逐章加深理解 + 练习 ---------- */
+  function bookGroups() {
+    var m = {};
+    state.docs.forEach(function (d) {
+      if (!d.node) return;
+      var b = d.node.book || '其他';
+      if (!m[b]) m[b] = { book: b, stage: d.stage, subject: d.subject, docs: [] };
+      m[b].docs.push(d);
+    });
+    return Object.keys(m).sort(function (a, b) { return a.localeCompare(b, 'zh-CN'); })
+      .map(function (k) { return m[k]; });
+  }
+  function renderBooks() {
+    $('bookList').innerHTML = bookGroups().map(function (g) {
+      var lab = g.stage === 'highschool' ? '高中' : g.stage === 'university' ? '大学' : '精讲';
+      return '<div class="bookitem' + (state.activeBook === g.book ? ' active' : '') +
+        '" data-book="' + esc(g.book) + '">' + esc(g.book) +
+        '<span class="bm">' + lab + ' · ' + esc(g.subject) + ' · ' + g.docs.length + ' 章</span></div>';
+    }).join('');
+    Array.prototype.forEach.call($('bookList').children, function (el) {
+      el.onclick = function () {
+        state.activeBook = el.dataset.book; state.activeChapter = null;
+        renderBooks(); renderChapters(); renderChapterDetail();
+      };
+    });
+  }
+  function renderChapters() {
+    var g = bookGroups().filter(function (x) { return x.book === state.activeBook; })[0];
+    if (!g) { $('chapterList').innerHTML = '<p class="hint">请选择左侧教材。</p>'; return; }
+    $('chapterList').innerHTML = g.docs.map(function (d) {
+      return '<div class="chapitem' + (state.activeChapter === d.id ? ' active' : '') +
+        '" data-id="' + esc(d.id) + '">' + esc(d.node.unit) + ' ' + esc(d.title) +
+        '<span class="cm">难度 ' + (d.node.difficulty || 2) + ' · ' +
+        (d.node.questions || []).length + ' 道题' + (d.node.featured ? ' · 精讲' : '') + '</span></div>';
+    }).join('');
+    Array.prototype.forEach.call($('chapterList').children, function (el) {
+      el.onclick = function () {
+        state.activeChapter = el.dataset.id; renderChapters(); renderChapterDetail();
+      };
+    });
+  }
+  function addWrongFromQuestion(q, k) {
+    var d = new Date(); d.setDate(d.getDate() + 1);
+    state.wrong.unshift({ q: q.slice(0, 60), r: '待订正（来自章节练习）', k: k,
+      next: d.toISOString().slice(0, 10) });
+    writeLS(LS_WRONG, state.wrong); renderWrong(); setStatus('已加入错题本');
+  }
+  function renderChapterDetail() {
+    var box = $('chapterDetail');
+    if (!state.activeChapter) {
+      box.innerHTML = '<p class="hint">选择中间一章，查看加深理解讲解与本章练习。</p>'; return;
+    }
+    var d = state.docs.filter(function (x) { return x.id === state.activeChapter; })[0];
+    if (!d) return;
+    var n = d.node;
+    var html = '<div class="detail-title">' + esc(n.name) + '</div>' +
+      '<div class="detail-meta">' + esc(n.book) + ' · ' + esc(n.unit) + ' · ' + esc(n.subject) +
+      ' · 难度 ' + (n.difficulty || 2) + ' · ' + esc(d.license) + '</div>' +
+      '<div class="dd-block"><b>核心关系</b><p>' + esc(n.formula || n.why || '—') + '</p></div>' +
+      (n.deep_dive || []).map(function (s) {
+        return '<div class="dd-block"><b>加深理解 · ' + esc(s.title) + '</b><p>' + esc(s.text) + '</p></div>';
+      }).join('') +
+      '<h2 style="margin:14px 0 8px">本章练习 <span class="hint">全部自撰/自生成，不含教辅原题</span></h2>';
+    html += (n.questions || []).map(function (q, i) {
+      return '<div class="qcard" data-idx="' + i + '">' +
+        '<div class="qhead"><span>' + esc(q.type) + ' · 难度 ' + (q.difficulty || 2) + '</span>' +
+        '<span class="tag mini">' + (q.auto_generated ? '自生成 · 建议教师审核' : '本项目自撰例题') + '</span></div>' +
+        '<div class="qtext">' + esc(q.q) + '</div>' +
+        '<div class="answer hidden"><b>答案：</b>' + esc(q.a) + '\n<b>解析：</b>' + esc(q.analysis) + '</div>' +
+        '<div class="qact"><button class="btn ghost" data-act="answer">查看答案</button>' +
+        '<button class="btn ghost" data-act="wrong">加入错题本</button></div></div>';
+    }).join('');
+    box.innerHTML = html;
+    Array.prototype.forEach.call(box.querySelectorAll('[data-act]'), function (btn) {
+      btn.onclick = function () {
+        var card = btn.closest('.qcard');
+        var q = (n.questions || [])[+card.dataset.idx];
+        if (btn.dataset.act === 'answer') {
+          var a = card.querySelector('.answer');
+          a.classList.toggle('hidden');
+          btn.textContent = a.classList.contains('hidden') ? '查看答案' : '收起答案';
+        } else if (q) addWrongFromQuestion(q.q, n.name);
+      };
+    });
+  }
+  function openBrowser() {
+    $('chapterModal').classList.remove('hidden');
+    if (!state.activeBook) {
+      var gs = bookGroups();
+      state.activeBook = gs.length ? gs[0].book : null;
+    }
+    renderBooks(); renderChapters(); renderChapterDetail();
+  }
+  function closeBrowser() { $('chapterModal').classList.add('hidden'); }
+
   function renderWrong() {
     $('wrongList').innerHTML = state.wrong.length ? state.wrong.map(function (w, i) {
       return '<li><span class="del" data-i="' + i + '">×</span><b>' + esc(w.q) + '</b><br>' +
@@ -195,9 +302,11 @@
       var parts = ['[' + (i + 1) + '] ' + d.title + ' · ' + d.chapter];
       if (n) {
         parts.push('讲解：' + n.summary);
-        if (n.formula) parts.push('核心式：' + n.formula);
+        if (n.formula) parts.push('核心关系：' + n.formula);
+        if (n.deep_dive && n.deep_dive[0]) parts.push('加深理解 · ' + n.deep_dive[0].title + '：' + n.deep_dive[0].text);
         parts.push('常见错误：' + (n.misconceptions || []).join('；'));
         parts.push('先修：' + ((n.prerequisites || []).join('、') || '无'));
+        parts.push('本章练习：' + (n.questions || []).length + ' 道（点左栏「浏览教材章节」逐章练习）');
       } else parts.push(d.text.slice(0, 400));
       return parts.join('\n');
     }).join('\n\n');
@@ -307,10 +416,13 @@
     $('apiKey').value = state.api ? state.api.key : '';
     $('apiModel').value = state.api ? state.api.model : '';
     updateBadge();
-    addMsg('sys', '学序 v' + VERSION + ' 已就绪。内置 ' + state.docs.length +
-      ' 个自撰知识点（高中数理化 + 大学理工），全部标注教材章节映射，不含任何教材原文。' +
-      '<h4>合规边界</h4>教材与练习册全文不内置、不抓取、不分发；如需全文检索，请导入你自己持有的 TXT/MD 文件。' +
-      '<h4>演示模式</h4>未配置模型时，本工作台只返回检索到的知识点片段并明确标注，不会假装是 AI 生成的回答。');
+    var st0 = KG.stats || {};
+    addMsg('sys', '学序 v' + VERSION + ' 已就绪：' + (st0.textbooks || 0) + ' 种教材 / ' +
+      (st0.chapters || 0) + ' 章 / ' + (st0.questions || 0) + ' 道自生成题，覆盖高中数理化与大学理工核心课程。' +
+      '<h4>逐章练习</h4>点左栏「浏览教材章节」→ 选教材 → 选章，可看四段加深理解讲解与 3 道练习题（含答案解析），并可一键加入错题本。' +
+      '<h4>合规边界</h4>导入的是书目与章节骨架 + 本项目自撰讲解与题目，不含教材/教辅原文，也不抓取、不分发全文；如需全文检索请导入你自己持有的 TXT/MD 文件。' +
+      '<h4>题目质量</h4>章节题目由知识点骨架自动生成，标注「自生成 · 建议教师审核」；22 个精讲章节含人工自撰例题。' +
+      '<h4>演示模式</h4>未配置模型时只返回检索到的片段并明确标注，不会假装是 AI 生成的回答。');
 
     $('quickRow').innerHTML = [
       '导数为零一定是极值点吗？', '我算电磁感应时总把磁通量和变化率搞混',
@@ -343,6 +455,17 @@
       state.wrong.unshift({ q: q, r: r || '未填错因', k: k, next: d.toISOString().slice(0, 10) });
       writeLS(LS_WRONG, state.wrong); $('wrongQ').value = $('wrongR').value = ''; renderWrong();
     };
+
+    $('openBrowser').onclick = openBrowser;
+    $('closeBrowser').onclick = closeBrowser;
+    $('chapterModal').onclick = function (e) { if (e.target === $('chapterModal')) closeBrowser(); };
+    document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeBrowser(); });
+    var st = KG.stats || {};
+    var statTxt = (st.textbooks || 0) + ' 种教材 / ' + (st.chapters || 0) + ' 章 / ' + (st.questions || 0) + ' 道自生成题';
+    $('coverageLine').textContent = '高中数理化 · 大学理工 ｜ ' + statTxt + ' ｜ 教材锚定 · 错因诊断 · 可溯源引用';
+    $('browserStat').textContent = statTxt + '；全部为自撰/自生成内容，不含教材原文。';
+    $('modalStat').textContent = statTxt + '（每章 3 道题与 4 段加深理解）';
+    renderBooks(); renderChapters(); renderChapterDetail();
   }
   function updateBadge() {
     var b = $('modeBadge');

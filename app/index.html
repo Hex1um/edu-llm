@@ -6,8 +6,8 @@
 <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate, max-age=0">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>学序 · 教材锚定辅导工作台 v0.1.0</title>
-<link rel="stylesheet" href="style.css?v=0.1.0">
+<title>学序 · 教材锚定辅导工作台 v0.2.0</title>
+<link rel="stylesheet" href="style.css?v=0.2.0">
 </head>
 <body>
 <header class="topbar">
@@ -15,12 +15,12 @@
     <span class="logo">学</span>
     <div>
       <h1>学序 <small>Textbook-Grounded Tutor</small></h1>
-      <p class="sub">高中数理化 · 大学理工 ｜ 教材锚定 / 错因诊断 / 可溯源引用</p>
+      <p class="sub" id="coverageLine">高中数理化 · 大学理工 ｜ 教材锚定 / 错因诊断 / 可溯源引用</p>
     </div>
   </div>
   <div class="topright">
     <span class="badge" id="modeBadge">检索演示模式</span>
-    <span class="ver">v0.1.0</span>
+    <span class="ver">v0.2.0</span>
   </div>
 </header>
 
@@ -53,6 +53,8 @@
         <input id="fileInput" type="file" accept=".txt,.md,.markdown,.json,text/plain,application/json" multiple hidden>
         <p class="hint">文件只在浏览器本地读取与切分，<b>不上传、不分发</b>。PDF 请先转成文本：<code>python scripts/pdf_to_text.py 教材.pdf</code></p>
       </div>
+      <button class="btn primary wide" id="openBrowser" style="margin-top:10px">浏览教材章节 · 逐章练习</button>
+      <p class="hint" id="browserStat"></p>
     </section>
 
     <section>
@@ -106,7 +108,21 @@
   </aside>
 </div>
 
-<script src="knowledge.js?v=0.1.0"></script>
-<script src="app.js?v=0.1.0"></script>
+<div id="chapterModal" class="modal hidden">
+  <div class="modal-box">
+    <div class="modal-head">
+      <h3>教材章节浏览 <span class="hint" id="modalStat"></span></h3>
+      <button class="btn ghost" id="closeBrowser">关闭</button>
+    </div>
+    <div class="modal-body">
+      <div class="col-books" id="bookList"></div>
+      <div class="col-chapters" id="chapterList"></div>
+      <div class="col-detail" id="chapterDetail"></div>
+    </div>
+  </div>
+</div>
+
+<script src="knowledge.js?v=0.2.0"></script>
+<script src="app.js?v=0.2.0"></script>
 </body>
 </html>

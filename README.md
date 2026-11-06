@@ -1,6 +1,7 @@
-# 面向中国高中 / 大学生的大模型：调研结论与实施路线（v0.1）
+# 面向中国高中 / 大学生的大模型：调研结论与实施路线（v0.2.0）
 
 > **GitHub**：<https://github.com/Hex1um/edu-llm> ｜ **在线演示**：<https://xuexu-tutor.app.workbuddy.host/?sharecode=JIHHAP7ZVP>
+> **v0.2.0**：已导入 39 种理工教材 / 197 章 / 657 道自生成题，每章配 4 段加深理解（见第 10 节）。
 > 调研日期：2026-11-07 ｜ 参考项目：`haolpku/Omni-Edu`、`HKUDS/DeepTutor`
 > 结论先说：**不可能合法地"搜到所有中国高中和大学课本与练习册全文"，而且并不必要。**
 > 可行且不违规的形态是：**书目 / 课标知识图谱做"全量"，全文语料做"少量合法 + 用户自备"，模型用开源基座做轻量适配，应用做成 RAG 辅导工作台。**
@@ -100,16 +101,19 @@ L3  模型层（不从头训练）
 
 | 文件 | 内容 |
 |---|---|
-| `README.md` | 本调研结论、架构与路线 |
+| `README.md` | 本调研结论、架构、发布与导入说明 |
 | `data/sources.json` | 逐条资源清单：URL、许可分级、允许用途、司法案例 |
 | `data/catalog_highschool.json` | 高中教材书目骨架（学科 × 版本 × 册次）+ 官方目录 XLSX 入口 |
 | `data/catalog_university.json` | 大学 14 学科门类 / 92 专业类 + 公共基础课典型教材骨架 |
 | `data/practice_books.json` | 教辅练习册书目索引 + 版权状态 + 合法替代方案 |
-| `data/knowledge_graph.json` | 22 个自撰知识点：教材章节映射、先修关系、常见错误、例题 |
-| `app/index.html` / `style.css` / `app.js` | 零依赖 RAG 辅导工作台前端 |
+| `data/knowledge_graph.json` | **全量章节库**：39 种教材 / 197 章 / 219 节点 / 657 道题，含加深理解与先修关系 |
+| `data/featured_nodes.json` | 22 个人工精校章节（生成器的深度样板） |
+| `scripts/curriculum_hs.py` / `curriculum_uni.py` | 人工整理的高中 / 大学理工章节骨架总表 |
+| `scripts/build_curriculum.py` | 章节总表 → 全量知识库（派生加深理解与每章 3 道题） |
+| `app/index.html` / `style.css` / `app.js` | 零依赖 RAG 辅导工作台 + 教材章节浏览器 |
 | `app/knowledge.js` | 由上述 JSON 自动生成的内联运行时数据（规避 file:// 的 CORS 限制） |
 | `scripts/build_knowledge_js.py` | 知识图谱 → 前端 JS 的同步脚本 |
-| `scripts/serve.py` | 本地服务器，全量 `Cache-Control: no-store` |
+| `server.py` / `scripts/serve.py` | 单端口服务（绑定 PORT、0.0.0.0、全量 `no-store`）/ 兼容入口 |
 | `scripts/pdf_to_text.py` | 自备教材 PDF → 本地纯文本（可选 PyMuPDF） |
 
 > 目录文件均为**骨架 + 权威来源 URL**，不是伪造的逐册全量清单；完整逐册字段应从教育部 XLSX / 智慧高教接口解析后补齐。
@@ -126,11 +130,14 @@ L3  模型层（不从头训练）
 
 ---
 
-## 8. v0.1.0 原型：学序（Textbook-Grounded Tutor）
+## 8. v0.2.0 原型：学序（Textbook-Grounded Tutor）
 
 ### 运行
 
 ```bash
+# 重建全量知识库（改了章节总表或精讲样板后执行）
+python scripts/build_curriculum.py && python scripts/build_knowledge_js.py
+
 # 方式一：直接双击 app/index.html —— 检索演示模式可用
 # 方式二（推荐，服务端强制禁用缓存）：
 python server.py                     # 默认 8000，浏览器打开 http://127.0.0.1:8000/
@@ -146,38 +153,40 @@ python scripts/serve.py 8000         # 等价的兼容入口
 
 | 能力 | 说明 |
 |---|---|
-| 课程锚定 | 22 个自撰知识点（高中数学 6 / 物理 4 / 化学 4；大学高数 2 / 线代 2 / 概率 1 / 大物 1 / 数据结构 1 / 程序设计 1），每个带教材章节映射、先修关系、常见错误、自撰例题 |
-| 检索 | 中文 BM25（单字 + bigram），按学段 / 学科过滤，返回可溯源引用（知识点 + 章节 + 来源 + 许可） |
+| 课程锚定 | **39 种教材 / 197 章**章节骨架（高中 66 + 大学 131）+ 22 个精讲章节；每章带册次、章号、核心概念、公式、先修关系与易错点 |
+| 逐章加深理解 | 每章 4 段：本质直觉 / 概念边界 / 常见卡点 / 向上连接；浏览器逐章展开 |
+| 逐章练习 | **657 道题**，每章 3 道（概念辨析 / 条件应用 / 跨章联系），带答案与解析，可一键加入错题本；界面标注「自生成 · 建议教师审核」 |
+| 检索 | 中文 BM25（单字 + bigram），按学段 / 学科过滤，返回可溯源引用（知识点 + 章节 + 来源 + 许可）；上下文附带本章「本质直觉」 |
 | 教学指令 | 6 类：直接解题 / 分步提示（禁止提前给答案）/ 错因诊断（须依据学生作答）/ 苏格拉底追问 / 概念讲解 / 生成练习；system prompt 强制只依据检索片段、用 `[编号]` 引用、不编造教材原文 |
 | 自备资料 | TXT / MD / JSON 由浏览器 FileReader 本地读取并切分，**不上传、不分发**；PDF 用 `scripts/pdf_to_text.py` 先转文本 |
 | 学习记录 | 错题本（localStorage，关联知识点 + 复习日期）、知识点地图 |
 | 合规面板 | 开放语料清单显式标注「禁商用 / 可商用*」，提示产品化前剔除 NC 许可数据 |
-| 缓存治理 | HTML meta 三件套 + 资源 `?v=0.1.0` + 服务端全量 `no-store` + API 请求 `cache: 'no-store'` |
+| 缓存治理 | HTML meta 三件套 + 资源 `?v=0.2.0` + 服务端全量 `no-store` + API 请求 `cache: 'no-store'` |
 
-### 实测结果（2026-11-07）
+### 实测结果（2026-11-07，v0.2.0）
 
 ```
-JSON OK  data/catalog_highschool.json / catalog_university.json / knowledge_graph.json
-         / practice_books.json / sources.json        （5/5 通过 json.load）
-OK: app/knowledge.js  nodes=22                      （build_knowledge_js.py 生成）
-node --check app/app.js / app/knowledge.js          （通过，无输出即无语法错误）
-HTTP status      : 200
-Cache-Control    : no-store, no-cache, must-revalidate, max-age=0
-Pragma           : no-cache   |   Expires: 0
-versioned css/js : True       |   no-cache meta: True
-python -m py_compile server.py scripts/*.py                    （4/4 通过）
-root /           : 200  Cache-Control: no-store, ...           （本地单端口实测）
-/app.js?v=0.1.0 : 200  Cache-Control: no-store, ...           （静态资源同样禁缓存）
-GitHub API       : 200  login=Hex1um  scopes=repo             （建仓认证）
+build_curriculum.py  : 教材 39 种 | 章节 197 章（高中 66 / 大学 131）
+                       学科 19 类 | 精讲 22 章 | 节点 219 | 题目 657 道
+                       悬空先修引用: 无
+JSON OK              : data/*.json 6/6 通过 json.load
+OK: app/knowledge.js  nodes=219                    （build_knowledge_js.py 生成，约 827 KB）
+node --check         : app/app.js / app/knowledge.js 通过
+python -m py_compile : server.py + scripts/*.py 全通过
+root /               : 200  Cache-Control: no-store, ...  （本地单端口实测）
+/knowledge.js?v=0.2.0 : 200 且 stats / nodes 字段可加载
+?v=0.2.0 资源引用    : 3 处；chapterModal / openBrowser 存在
+GitHub API           : 200  login=Hex1um  scopes=repo    （建仓认证）
 ```
 
 ### 已知限制 / 下一步
 
-1. 知识点是**骨架**不是全量书目；下一步写解析器读教育部 XLSX → 逐册 JSON + 章节→知识点映射。
-2. 检索目前只有 BM25；下一步加 BGE-M3 向量 + FAISS 混合检索，并补 `kb eval`（Recall@k / nDCG / MRR）。
-3. 暂未微调模型；路线 B 需要 24G 显卡或云 GPU，且训练集必须先剔除 NC 许可数据。
-4. 已发布上线，见第 9 节。线上版是**纯前端 + 检索演示模式**，不内置任何 API Key；每位访客需自行在左栏填自己的模型配置。
-5. 浏览器直连部分模型 API 可能受 CORS 限制，建议经 `server.py` 打开；若仍被拦，需加一层本地代理。
+1. 章节骨架按**通行教材目录**整理，不是教育部逐册字段；下一步写解析器读官方 XLSX → 逐册 JSON 并与本章节表对齐。
+2. **未导入教材/教辅原文**，也不批量抓取（合规原因见第 3、10 节）。
+3. 657 道题为自生成，需教师审核后才能作为正式作业；22 个精讲章节含人工自撰例题。
+4. 检索目前只有 BM25；下一步加 BGE-M3 向量 + FAISS 混合检索，并补 `kb eval`（Recall@k / nDCG / MRR）。
+5. 暂未微调模型；路线 B 需要 24G 显卡或云 GPU，且训练集必须先剔除 NC 许可数据。
+6. 已发布上线（第 9 节），线上版不内置任何 API Key；浏览器直连部分模型 API 可能受 CORS 限制。
 
 ---
 
@@ -189,8 +198,45 @@ GitHub API       : 200  login=Hex1um  scopes=repo             （建仓认证）
 | 云服务分享链接 | <https://xuexu-tutor.app.workbuddy.host/?sharecode=JIHHAP7ZVP> |
 | 部署形态 | `http-service`，Python 单端口，`startCmd: python3 server.py`，`PORT` 由平台注入 |
 | 服务根目录 | `app/`（只暴露前端，仓库里的 `data/`、`scripts/` 不经 HTTP 发布） |
-| 缓存治理 | 服务端全量 `Cache-Control: no-store, no-cache, must-revalidate, max-age=0` + `Pragma: no-cache` + `Expires: 0`；另有 `app/_headers` 静态兜底、HTML meta 三件套、资源 `?v=0.1.0`、API 请求 `cache: 'no-store'` |
+| 缓存治理 | 服务端全量 `Cache-Control: no-store, no-cache, must-revalidate, max-age=0` + `Pragma: no-cache` + `Expires: 0`；另有 `app/_headers` 静态兜底、HTML meta 三件套、资源 `?v=0.2.0`、API 请求 `cache: 'no-store'` |
 
-仓库文件：`app/`（前端）、`data/`（5 份资源/合规/知识点 JSON）、`scripts/`（构建、PDF 转换、兼容入口）、`server.py`、`LICENSE`、`.gitignore`。
+仓库文件：`app/`（前端）、`data/`（6 份资源/合规/章节 JSON）、`scripts/`（章节总表、生成器、PDF 转换、兼容入口）、`server.py`、`LICENSE`、`.gitignore`。
 
 > 版权边界不变：本仓库代码与自撰内容按 MIT 开源；`data/*.json` 列出的第三方教材、题库与评测集保留各自权利，本项目不分发任何教材或教辅原文。
+
+---
+
+## 10. v0.2.0：全量理工教材章节导入（2026-11-07）
+
+### 导入了什么
+
+| 层级 | 覆盖 | 说明 |
+|---|---|---|
+| 教材书目 | **39 种** | 高中 16 册（数学 5 / 物理 6 / 化学 5）、大学 16 门理工核心课程、精讲专题 1 组 |
+| 章节 | **197 章** | 高中 66 章（数学 18 / 物理 28 / 化学 20）、大学 131 章（19 类课程方向） |
+| 精讲章节 | 22 章 | 人工精校的自撰讲解与例题，作为深度样板 |
+| 加深理解 | **每章 4 段** | 本质直觉 / 概念边界 / 常见卡点 / 向上连接 |
+| 练习 | **657 道** | 每章 3 道：概念辨析 / 条件应用 / 跨章联系，全部带答案与解析 |
+
+大学覆盖课程：高等数学、线性代数、概率论与数理统计、大学物理、程序设计基础、数据结构、计算机组成原理、操作系统、计算机网络、电路、电子技术、力学基础、信号与控制、大学化学、机械与制图、复变函数与数理方程。
+
+### 关键边界（必须说清）
+
+- **导入的是「书目 + 章节骨架 + 自撰讲解/题目」，不是教材原文**。教材与教辅全文受版权保护，平台明文不得商用、不提供下载，教辅已有刑事判例（第 3 节）。因此没有、也不会批量抓取全文。
+- 所有章节题目是**自生成**，界面标注「自生成 · 建议教师审核」；可用但不等同于出版社原题，正式用于教学前应由教师校订。
+- 章名与册次按通行教材目录整理，具体以各校用书 / 出版社目录为准；逐册字段仍可从教育部 XLSX 与智慧高教接口补全。
+- 需要教材全文检索时：你自己持有的 PDF → `scripts/pdf_to_text.py` → 浏览器本地导入，全程不上传、不分发。
+
+### 数据链路
+
+```text
+scripts/curriculum_hs.py + curriculum_uni.py    人工整理的章节骨架总表
+        ↓ python scripts/build_curriculum.py    （合并 data/featured_nodes.json）
+data/knowledge_graph.json                      全量章节 + 加深理解 + 题目
+        ↓ python scripts/build_knowledge_js.py
+app/knowledge.js → app/index.html              （内联，file:// 也能直接打开）
+```
+
+### 使用
+
+左栏「浏览教材章节 · 逐章练习」→ 选教材 → 选章 → 右侧显示四段加深理解与 3 道题（点「查看答案」展开），可一键加入错题本。检索与教学指令也会把章节的「本质直觉」和题目数量带入上下文。
