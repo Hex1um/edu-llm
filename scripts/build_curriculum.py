@@ -1,17 +1,24 @@
-"""把章节骨架总表扩成完整知识库。
+"""把章节骨架总表扩成完整知识库（v0.3.0 命题趋势版）。
 
 输入：
-  scripts/curriculum_hs.py      高中数理化章节骨架
-  scripts/curriculum_uni.py     大学理工核心课程章节骨架
-  data/featured_nodes.json      22 个人工精讲章节（深度样板）
+  scripts/curriculum_hs.py              高中数理化章节骨架
+  scripts/curriculum_uni.py             大学理工核心课程章节骨架
+  scripts/question_bank.py              7 类题型 / 5:3:2 分层的题目生成器
+  data/featured_nodes.json              22 个人工精讲章节（深度样板）
+  data/original_exam_questions.json     10 道原创高中数学高区分度题
+  data/exam_trends.json                 近五年命题趋势与合规调研摘要
 
 输出：
-  data/knowledge_graph.json     全量章节节点；每章含 deep_dive 四段讲解与 3 道自生成题
+  data/knowledge_graph.json             全量章节节点；每章 5 段加深理解与 5 道分层题
+  （再由 build_knowledge_js.py / build_trends_js.py 生成前端内联数据）
 
-所有讲解与题目均由本项目自撰/自生成，不含任何教材或教辅原文。
-自生成题目标注 auto_generated=true，建议教师审核后使用。
+合规：所有讲解与题目均由本项目自撰 / 自生成，不含任何教材、教辅、真题或模考卷原文。
+自生成题标注 auto_generated=true 与「建议教师审核后使用」。
 
-用法：python scripts/build_curriculum.py && python scripts/build_knowledge_js.py
+用法：
+  python scripts/build_curriculum.py
+  python scripts/build_knowledge_js.py
+  python scripts/build_trends_js.py
 """
 import json
 import sys
@@ -22,8 +29,9 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import curriculum_hs  # noqa: E402
 import curriculum_uni  # noqa: E402
+import question_bank  # noqa: E402
 
-VERSION = "0.2.0"
+VERSION = "0.3.0"
 FIELDS = 13
 
 # 精讲专题沿用的旧版短 id → 中文名（仅用于显示先修关系，不参与检索）
@@ -40,6 +48,8 @@ LEGACY_NAMES = {
     "uni-prob-dist": "随机变量与常见分布", "uni-phy-em": "电磁场与麦克斯韦方程组",
     "uni-cs-complexity": "算法复杂度与数据结构", "uni-cs-memory": "指针、内存与程序运行时",
 }
+
+PRACTICE_PLAN = "每章 5 题：基础 2 / 中档 2 / 高区分度 1，按分值 5:3:2；含多选、结构不良与递进设问"
 
 
 def parse_rows(raw, stage):
@@ -94,58 +104,16 @@ def make_deep_dive(n, index):
         {"title": "向上连接", "text": (
             f"先修：{link}。往前看，{c3} 会在后续章节里被推广到更一般的情形，"
             f"届时 {c1} 只是一个特例。把本章放进这条链条里理解，比孤立背公式更牢。")},
+        {"title": "命题视角", "text": (
+            f"近五年高考与模考不再只考 {n['formula']} 的直接代入，更常见的是把它放进陌生情境、"
+            "新定义或跨模块链条里：先要求复述前提，再判断结论在更弱条件下是否仍成立，最后要求构造或完备性论证。"
+            "本章练习按分值 5:3:2 分层，含多选题、条件开放题与递进设问；"
+            "做高区分度题时先写清所用前提，比急着算出答案更容易得分。")},
     ]
 
 
-def make_questions(n, index):
-    c1, c2, c3 = n["concepts"]
-    pre = pre_names(n["prerequisites"], index)
-    link = "、".join(pre) if pre else "基础的数学与科学概念"
-    base = {"auto_generated": True, "review": "自生成题目，建议教师审核后使用"}
-    q1 = {
-        **base, "type": "概念辨析", "difficulty": 1,
-        "q": f"有同学在做题时采取了这样的做法：{n['pitfall']}。请判断该做法是否正确，并说明理由。",
-        "a": "该做法不正确。",
-        "analysis": (
-            f"{n['why']}。本章围绕 {c1}、{c2}、{c3} 展开，"
-            f"{n['formula']} 只在相应前提下成立。"
-            f"上述做法正是忽略前提或混淆对象层级导致的典型错误；"
-            f"正确做法是先确认 {c1} 的适用条件，再套用结论。"),
-    }
-    q2 = {
-        **base, "type": "条件应用", "difficulty": 2,
-        "q": f"写出本章的核心关系「{n['formula']}」，说明它成立需要哪些前提；若去掉其中一个前提，结论会怎样变化？",
-        "a": n["formula"],
-        "analysis": (
-            f"前提由 {c1} 与 {c2} 给出。去掉任一前提后，原结论通常需要额外修正甚至完全不成立；"
-            f"这也是「{n['pitfall']}」之所以成为高频错因的原因。"
-            "解题时建议先列前提清单，再代入数值或推导。"),
-    }
-    if pre:
-        q3 = {
-            **base, "type": "跨章联系", "difficulty": 3,
-            "q": f"本章「{n['name']}」与先修内容「{link}」如何衔接？举一个需要同时用到两者的具体场景。",
-            "a": f"先修提供基本概念与工具，本章把它们推广到 {c3}。",
-            "analysis": (
-                f"{link} → {n['name']} 的推进体现在：从 {c1} 扩展到 {c2} 与 {c3}。"
-                f"{n['why']} 先修中的结论在本章依然成立，但形式更一般。"
-                "若能举出同时调用两者的例题，说明知识链条已经打通。"),
-        }
-    else:
-        q3 = {
-            **base, "type": "跨章联系", "difficulty": 3,
-            "q": f"本章「{n['name']}」在整门课程中处于什么位置？举一个后续章节或工程场景会用到 {c3} 的例子。",
-            "a": f"{n['name']} 是后续内容的基础模块。",
-            "analysis": (
-                f"本章建立 {c1}、{c2}、{c3} 三个基本概念与 {n['formula']}，"
-                "后续章节通常会在更弱的假设或更高维的情形下重新使用它。"
-                "这类起点章节要建立的是语言与前提意识，而不只是结论本身。"),
-        }
-    return [q1, q2, q3]
-
-
-def enrich_featured(n, index):
-    """给人工精讲章节补齐统一字段，保留其手写例题。"""
+def enrich_featured(n, index, seq):
+    """给人工精讲章节补齐统一字段，保留其手写例题，并套用 v0.3.0 分层练习。"""
     pre = n.get("prerequisites", [])
     pre_txt = "、".join(pre_names(pre, index)) or "基础概念"
     concepts = [n["name"]] + (n.get("misconceptions") or [])[:2]
@@ -167,28 +135,23 @@ def enrich_featured(n, index):
         {"title": "概念边界", "text": f"核心关系：{n['formula']}。先修：{pre_txt}。使用结论前先核对前提。"},
         {"title": "常见卡点", "text": "；".join(n.get("misconceptions") or [])},
         {"title": "向上连接", "text": f"与 {pre_txt} 衔接；本章为同一学科后续章节提供基础。"},
+        {"title": "命题视角", "text": (
+            "高区分度题常把本章结论藏在陌生表述下，或要求判断结论在更弱条件下是否仍成立。"
+            "作答时先复述所用结论的前提，再展开推导；只写答案、不写前提容易在分问给分中丢分。")},
     ]
     ex = n.get("example") or {"q": f"举一个说明 {n['name']} 的例子。", "a": "见本章讲解。"}
-    qs = [{
-        "type": "精讲例题", "difficulty": 2, "auto_generated": False,
-        "review": "本项目自撰例题", "q": ex["q"], "a": ex["a"],
-        "analysis": n.get("summary", ""),
-    }]
-    qs.append({
-        "type": "概念辨析", "difficulty": 1, "auto_generated": True,
-        "review": "自生成题目，建议教师审核后使用",
-        "q": f"有同学在做题时采取了这样的做法：{n['pitfall']}。请判断并说明理由。",
-        "a": "该做法不正确。",
-        "analysis": "；".join(n.get("misconceptions") or []) + "。请先写出结论前提再判断。",
-    })
-    qs.append({
-        "type": "跨章联系", "difficulty": 3, "auto_generated": True,
-        "review": "自生成题目，建议教师审核后使用",
-        "q": f"{n['name']} 与先修内容 {pre_txt} 的关系是什么？举一个同时用到两者的场景。",
-        "a": "先修提供工具，本章在此基础上给出新的结论。",
-        "analysis": f"核心关系 {n['formula']} 可视为先修结论在更一般情形下的推广。",
-    })
-    n["questions"] = qs
+    hand = {
+        "id": n["id"] + "-example",
+        "type": "featured_example", "type_label": "精讲例题", "level": "中档",
+        "difficulty": 2, "weight": 2, "bonus": True,
+        "knobs": {"novelty": 0, "openness": 0, "modules": 1, "chain": 1, "construction": 0},
+        "trend_tags": ["人工精校"],
+        "q": ex["q"], "a": ex["a"], "analysis": n.get("summary", ""),
+        "rubric": ["写出关键步骤 60%", "结论与定义域 / 前提核对 40%"],
+        "auto_generated": False, "author": "本项目自撰",
+        "review": "本项目自撰例题", "source": "self-authored", "license": "self-authored",
+    }
+    n["questions"] = question_bank.make_questions(n, index, seq) + [hand]
     return n
 
 
@@ -198,23 +161,33 @@ def main():
     base_nodes = hs + uni
     index = {n["id"]: n for n in base_nodes}
 
-    for n in base_nodes:
+    for seq, n in enumerate(base_nodes):
         n["summary"] = (
             f"{n['name']}属于{n['book']}{n['unit']}，围绕{n['concepts'][0]}、"
             f"{n['concepts'][1]}与{n['concepts'][2]}展开。{n['why']}"
             f"本章的核心关系是 {n['formula']}，使用时要特别注意：{n['pitfall']}。")
         n["misconceptions"] = [n["pitfall"]]
         n["deep_dive"] = make_deep_dive(n, index)
-        n["questions"] = make_questions(n, index)
+        n["questions"] = question_bank.make_questions(n, index, seq)
+        n["practice_plan"] = PRACTICE_PLAN
         n["source"] = "章节骨架 + 自撰讲解与题目"
         n["license"] = "self-authored"
 
     featured_raw = json.loads((ROOT / "data" / "featured_nodes.json").read_text(encoding="utf-8"))
-    featured = [enrich_featured(x, index) for x in featured_raw["nodes"]]
+    featured = [enrich_featured(x, index, 200 + i) for i, x in enumerate(featured_raw["nodes"])]
+    for n in featured:
+        n["practice_plan"] = PRACTICE_PLAN
+        n["source"] = "精讲专题 + 自撰讲解与题目"
+        n["license"] = "self-authored"
     index.update({n["id"]: n for n in featured})
 
-    # 先修 id 必须能在库里找到（精讲节点用的是短 id，允许保留原样）
     all_nodes = base_nodes + featured
+    original = json.loads((ROOT / "data" / "original_exam_questions.json").read_text(encoding="utf-8"))
+    mounts = question_bank.attach_original(all_nodes, original)
+
+    trends = json.loads((ROOT / "data" / "exam_trends.json").read_text(encoding="utf-8"))
+
+    # 先修 id 必须能在库里找到（精讲节点用的是短 id，允许保留原样）
     ids = {n["id"] for n in all_nodes}
     dangling = sorted({p for n in all_nodes for p in n.get("prerequisites", [])
                        if p not in ids and p not in LEGACY_NAMES})
@@ -223,23 +196,42 @@ def main():
     stages = Counter(n["stage"] for n in base_nodes)
     subjects = Counter(n["subject"] for n in base_nodes)
     qcount = sum(len(n["questions"]) for n in all_nodes)
+    bonus = sum(1 for n in all_nodes for q in n["questions"] if q.get("bonus"))
+    dist = question_bank.summarize(all_nodes)
 
     out = {
         "version": VERSION,
         "generated_at": "2026-11-07",
         "note": (
-            "全量章节骨架按通行教材目录整理，仅含书目/章节映射与本项目自撰的讲解和题目，"
-            "不含任何教材或教辅原文。具体册次与章名请以各校用书与出版社目录为准。"),
+            "全量章节骨架按通行教材目录整理，仅含书目 / 章节映射与本项目自撰的讲解和题目，"
+            "不含任何教材、教辅、真题或模考卷原文。具体册次与章名请以各校用书与出版社目录为准。"),
         "license": "self-authored（本项目自撰内容）；第三方教材书目信息仅作引用",
+        "practice_plan": PRACTICE_PLAN,
+        "trend_note": trends["trend_research"]["verdict"],
+        "question_system": {
+            "version": VERSION,
+            "chapter_distribution": "基础 5 : 中档 3 : 高区分度 2（按分值，整卷模拟建议 3:5:2）",
+            "per_chapter_questions": 5,
+            "item_types": [t["name"] for t in trends["item_types"]],
+            "difficulty_knobs": [k["name"] for k in trends["difficulty_knobs"]],
+            "discrimination_index": trends["distribution"]["discrimination_index"]["formula"],
+            "score_ratio": dist["score_ratio"],
+        },
         "stats": {
             "textbooks": len(books),
             "chapters": len(base_nodes),
             "featured_chapters": len(featured),
             "total_nodes": len(all_nodes),
             "questions": qcount,
+            "chapter_practice_questions": qcount - bonus,
+            "bonus_questions": bonus,
+            "original_questions": len(original["questions"]),
+            "original_mounts": mounts,
             "highschool_chapters": stages["highschool"],
             "university_chapters": stages["university"],
             "subjects": len(subjects),
+            "questions_by_level": dist["by_level"],
+            "questions_by_type": dist["by_type"],
         },
         "books": [
             {"book": b, "count": c,
@@ -255,6 +247,8 @@ def main():
     print(f"OK  {dest.relative_to(ROOT)}")
     print(f"    教材 {len(books)} 种 | 章节 {len(base_nodes)} 章（高中 {stages['highschool']} / 大学 {stages['university']}）")
     print(f"    学科 {len(subjects)} 类 | 精讲 {len(featured)} 章 | 节点 {len(all_nodes)} | 题目 {qcount} 道")
+    print(f"    分层练习 {qcount - bonus} 道 | 附加题 {bonus} 道（原创 {len(original['questions'])} 道挂载 {mounts} 次 + 精讲例题 {len(featured)} 道）")
+    print(f"    分值配比: {dist['score_ratio']} | 层级: {dist['by_level']}")
     print(f"    悬空先修引用: {dangling or '无'}")
 
 
