@@ -1,14 +1,15 @@
-/* 学序 v0.3.0 — 零依赖教材章节练习与辅导工作台
+/* 学序 v0.4.0 — DeepSeek 风格教材锚定辅导工作台
    设计参考：OmniEdu（教学指令分类、课程锚定、错因诊断）
              DeepTutor（可溯源 RAG、版本化来源、错题与掌握度）
    命题依据：data/exam_trends.json（近五年趋势调研摘要，不转载试卷原文）
-   合规：不内置任何教材 / 教辅 / 真题原文；全文仅来自用户本地导入，不上传、不分发。 */
+   合规：不内置任何教材 / 教辅 / 真题原文；全文仅来自用户本地导入，不上传、不分发。
+   网络：模型请求经本站 /api/chat 同源代理转发，规避浏览器跨域（CORS）导致的连接失败。 */
 (function () {
   'use strict';
 
   var KG = window.KG || { nodes: [] };
   var TRENDS = window.TRENDS || {};
-  var VERSION = '0.3.0';
+  var VERSION = '0.4.0';
   var LS_API = 'xuexu.api';
   var LS_WRONG = 'xuexu.wrongbook';
 
@@ -26,6 +27,13 @@
     { id: 'quiz', name: '生成练习', desc: '出题 + 答案 + 解析',
       prompt: '你是命题老师。依据【知识库片段】生成 2 道由易到难的题目，附标准答案与逐条解析，并标注每题考查的知识点与教材章节。用 [编号] 标注依据。题目须自撰，不得复制任何教辅、真题或模考原题；优先使用新定义、条件开放、多选、递进设问等题型，并写明评分要点。' }
   ];
+
+  var PRESETS = {
+    deepseek: { base: 'https://api.deepseek.com', model: 'deepseek-chat' },
+    openai: { base: 'https://api.openai.com/v1', model: 'gpt-4o-mini' },
+    openrouter: { base: 'https://openrouter.ai/api/v1', model: 'openai/gpt-4o-mini' },
+    moonshot: { base: 'https://api.moonshot.cn/v1', model: 'moonshot-v1-8k' }
+  };
 
   /* B 级开放语料：许可标签决定能否进入产品化训练/服务 */
   var OPEN_SOURCES = [
@@ -129,12 +137,15 @@
 
   /* ---------- 渲染 ---------- */
   function renderModes() {
-    $('modeList').innerHTML = MODES.map(function (m) {
-      return '<button class="mode-btn' + (m.id === state.mode ? ' active' : '') + '" data-mode="' + m.id + '">' +
-        '<b>' + esc(m.name) + '</b><span>' + esc(m.desc) + '</span></button>';
+    $('modeChips').innerHTML = MODES.map(function (m) {
+      return '<button class="chip' + (m.id === state.mode ? ' active' : '') + '" data-mode="' + m.id + '">' +
+        esc(m.name) + '</button>';
     }).join('');
-    Array.prototype.forEach.call(document.querySelectorAll('.mode-btn'), function (b) {
-      b.onclick = function () { state.mode = b.dataset.mode; renderModes(); setStatus('已切换：' + MODES.filter(function (m) { return m.id === state.mode; })[0].name); };
+    Array.prototype.forEach.call(document.querySelectorAll('.chip'), function (b) {
+      b.onclick = function () {
+        state.mode = b.dataset.mode; renderModes();
+        setStatus('辅导方式：' + MODES.filter(function (m) { return m.id === state.mode; })[0].name);
+      };
     });
   }
   function renderFilters() {
@@ -180,7 +191,7 @@
     Array.prototype.forEach.call(document.querySelectorAll('.kgitem'), function (el) {
       el.onclick = function () {
         var d = state.docs.filter(function (x) { return x.id === el.dataset.id; })[0];
-        if (d) { $('input').value = '请讲解「' + d.title + '」，并结合它的先修知识点说明我该先补什么。'; $('input').focus(); }
+        if (d) { var el2 = document.body.classList.contains('in-chat') ? $('input') : $('inputWelcome'); el2.value = '请讲解「' + d.title + '」，并结合它的先修知识点说明我该先补什么。'; el2.focus(); }
       };
     });
   }
@@ -297,7 +308,6 @@
     $('chapterModal').classList.remove('hidden');
     var gs = bookGroups();
     if (!state.activeBook) {
-      // 默认落在高中数学第一册，打开即可看到讲解与练习，不必再点两次
       var prefer = gs.filter(function (g) { return /人教A版 必修第一册/.test(g.book); })[0];
       state.activeBook = prefer ? prefer.book : (gs.length ? gs[0].book : null);
     }
@@ -379,12 +389,17 @@
     var box = $('chat');
     var div = document.createElement('div');
     div.className = 'msg ' + role;
-    var who = role === 'user' ? '你' : role === 'sys' ? '说明' : '学序';
-    div.innerHTML = '<div class="who">' + who + '</div><div class="body">' + html + '</div>';
+    if (role === 'sys') {
+      div.innerHTML = '<div class="body">' + html + '</div>';
+    } else {
+      var who = role === 'user' ? '你' : '学序';
+      var av = role === 'ai' ? '<div class="av">学</div>' : '';
+      div.innerHTML = av + '<div><div class="who">' + who + '</div><div class="body">' + html + '</div></div>';
+    }
     box.appendChild(div); box.scrollTop = box.scrollHeight;
   }
 
-  /* ---------- 回答：真实模型 or 坦诚的检索演示 ---------- */
+  /* ---------- 回答：真实模型（经同源代理） or 坦诚的检索演示 ---------- */
   function demoAnswer(q, hits) {
     var head = '【检索演示模式｜未调用任何大模型】\n下面只列出命中的知识库片段，不是模型生成的回答。配置模型后才会得到教学解答。\n';
     if (!hits.length) return head + '\n当前筛选范围内没有命中知识点。试试放宽学科筛选，或导入自备资料。';
@@ -398,11 +413,11 @@
         if (n.deep_dive && n.deep_dive[4]) parts.push('命题视角：' + n.deep_dive[4].text);
         parts.push('常见错误：' + (n.misconceptions || []).join('；'));
         parts.push('先修：' + ((n.prerequisites || []).join('、') || '无'));
-        parts.push('本章练习：' + (n.questions || []).length + ' 道（点左栏「浏览教材章节」逐章练习）');
+        parts.push('本章练习：' + (n.questions || []).length + ' 道（点侧栏「教材章节练习」逐章练习）');
       } else parts.push(d.text.slice(0, 400));
       return parts.join('\n');
     }).join('\n\n');
-    return head + '\n' + body + '\n\n下一步：配置模型后可用「分步提示 / 错因诊断 / 苏格拉底追问」等模式生成教学回应。';
+    return head + '\n' + body + '\n\n下一步：在左侧「模型设置」填入接口地址与 Key，即可用六种辅导方式生成教学回应。';
   }
   async function callModel(q, hits) {
     var mode = MODES.filter(function (m) { return m.id === state.mode; })[0];
@@ -411,23 +426,34 @@
     var msgs = [{ role: 'system', content: sys }]
       .concat(state.history.slice(-6))
       .concat([{ role: 'user', content: q }]);
-    var base = state.api.base.replace(/\/+$/, '');
-    var url = /\/chat\/completions$/.test(base) ? base : base + '/chat/completions';
-    var resp = await fetch(url, {
+    // 经本站同源代理转发，规避浏览器跨域（CORS）
+    var resp = await fetch('/api/chat', {
       method: 'POST', cache: 'no-store',
-      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + state.api.key },
-      body: JSON.stringify({ model: state.api.model, messages: msgs, temperature: 0.4, stream: false })
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ base: state.api.base, key: state.api.key, model: state.api.model,
+        messages: msgs, temperature: 0.4 })
     });
-    if (!resp.ok) throw new Error('HTTP ' + resp.status + ' ' + (await resp.text()).slice(0, 200));
+    if (!resp.ok) {
+      var msg = '';
+      try { var j = await resp.json(); msg = (j && j.error) || ('HTTP ' + resp.status); }
+      catch (e) { msg = 'HTTP ' + resp.status; }
+      throw new Error(msg);
+    }
     var data = await resp.json();
     return (data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content) || '（模型返回为空）';
   }
 
+  function activeInput() { return document.body.classList.contains('in-chat') ? $('input') : $('inputWelcome'); }
+  function enterChat() { document.body.classList.add('in-chat'); }
+  function showWelcome() { document.body.classList.remove('in-chat'); }
+
   async function send() {
     if (state.busy) return;
-    var q = $('input').value.trim(); if (!q) return;
-    $('input').value = '';
-    state.busy = true; $('sendBtn').disabled = true;
+    var el = activeInput();
+    var q = el.value.trim(); if (!q) return;
+    el.value = '';
+    enterChat();
+    state.busy = true; $('sendBtn').disabled = true; $('sendWelcome').disabled = true;
     addMsg('user', esc(q));
     setStatus('检索中…');
     var idx = buildIndex(scopedDocs().concat(state.imported));
@@ -435,7 +461,7 @@
     state.hits = hits; renderCitations();
     if (state.api) {
       setStatus('调用模型中…');
-      addMsg('sys', '检索到 ' + hits.length + ' 条依据，已连同教学指令送入模型。');
+      addMsg('sys', '检索到 ' + hits.length + ' 条依据，已连同教学指令经本站代理送入模型。');
       try {
         var ans = await callModel(q, hits);
         addMsg('ai', esc(ans));
@@ -450,7 +476,7 @@
       addMsg('ai', esc(demoAnswer(q, hits)));
       setStatus('检索演示完成（未配置模型）');
     }
-    state.busy = false; $('sendBtn').disabled = false;
+    state.busy = false; $('sendBtn').disabled = false; $('sendWelcome').disabled = false;
   }
 
   /* ---------- 自备资料导入（全程本地） ---------- */
@@ -497,10 +523,12 @@
     });
   }
 
+  function openDrawer() { $('citeDrawer').classList.add('open'); $('drawerMask').classList.add('open'); }
+  function closeDrawer() { $('citeDrawer').classList.remove('open'); $('drawerMask').classList.remove('open'); }
+
   /* ---------- 初始化 ---------- */
   function init() {
     state.docs = KG.nodes.map(nodeToDoc);
-    // 兼容 v0.1 / v0.2 的按版本分键，避免升级后丢失本机错题与模型配置
     state.api = readLS(LS_API, null) || readLS('xuexu.api.0.2.0', null) || readLS('xuexu.api.0.1.0', null);
     state.wrong = readLS(LS_WRONG, []);
     if (!state.wrong || !state.wrong.length) state.wrong = readLS('xuexu.wrongbook.0.2.0', []) || [];
@@ -513,8 +541,8 @@
     var st0 = KG.stats || {};
     addMsg('sys', '学序 v' + VERSION + '：' + (st0.textbooks || 0) + ' 种教材 / ' +
       (st0.chapters || 0) + ' 章 / ' + (st0.questions || 0) + ' 道题，覆盖高中数理化与大学理工核心课程。' +
-      '<h4>逐章练习</h4>点左栏「浏览教材章节」→ 选教材 → 选章：每章 5 段加深理解、5 道分层练习（基础 2 / 中档 2 / 高区分度 1，分值 5:3:2），含答案、解析与评分要点。' +
-      '<h4>命题趋势</h4>右上「命题趋势与版权说明」记录近五年趋势调研、七类题型与试卷来源核查结论。' +
+      '<h4>逐章练习</h4>点侧栏「教材章节练习」→ 选教材 → 选章：每章 5 段加深理解、5 道分层练习（基础 2 / 中档 2 / 高区分度 1，分值 5:3:2），含答案、解析与评分要点。' +
+      '<h4>命题趋势</h4>侧栏「命题趋势与版权」记录近五年趋势调研、七类题型与试卷来源核查结论。' +
       '<h4>内容边界</h4>只含书目 / 章节骨架与本项目自撰讲解、题目，不含教材、教辅、真题或模考卷原文；' +
       (st0.original_questions || 0) + ' 道原创高区分度题为手工校订，其余标注「自生成 · 建议教师审核」。' +
       '<h4>演示模式</h4>未配置模型时只返回检索片段并明确标注，不会假装是模型回答。');
@@ -524,24 +552,30 @@
       '多选题怎样逐项判断', '帮我讲讲化学平衡的移动'
     ].map(function (t) { return '<button>' + esc(t) + '</button>'; }).join('');
     Array.prototype.forEach.call($('quickRow').children, function (b) {
-      b.onclick = function () { $('input').value = b.textContent; $('input').focus(); };
+      b.onclick = function () { var el = activeInput(); el.value = b.textContent; el.focus(); };
     });
 
     $('stageFilter').onchange = function () { state.stage = this.value; renderFilters(); renderKG(); state.hits = []; renderCitations(); };
     $('subjectFilter').onchange = function () { state.subject = this.value; renderFilters(); renderKG(); state.hits = []; renderCitations(); };
     $('sendBtn').onclick = send;
+    $('sendWelcome').onclick = send;
     $('input').onkeydown = function (e) { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } };
+    $('inputWelcome').onkeydown = function (e) { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } };
     $('fileInput').onchange = function () { handleFiles(this.files); this.value = ''; };
     $('saveApi').onclick = function () {
       var b = $('apiBase').value.trim(), k = $('apiKey').value.trim(), m = $('apiModel').value.trim();
       if (!b || !k || !m) { setStatus('请填完整接口地址 / key / 模型名'); return; }
       state.api = { base: b, key: k, model: m }; writeLS(LS_API, state.api); updateBadge();
-      setStatus('模型已配置（密钥仅存本机）');
+      setStatus('模型已配置（密钥仅存本机，经本站代理转发）');
     };
     $('clearApi').onclick = function () {
       state.api = null; writeLS(LS_API, null);
       $('apiBase').value = $('apiKey').value = $('apiModel').value = '';
       updateBadge(); setStatus('已切回检索演示模式');
+    };
+    $('apiPreset').onchange = function () {
+      var p = PRESETS[this.value];
+      if (p) { $('apiBase').value = p.base; $('apiModel').value = p.model; }
     };
     $('addWrong').onclick = function () {
       var q = $('wrongQ').value.trim(), r = $('wrongR').value.trim(); if (!q) return;
@@ -551,23 +585,31 @@
       writeLS(LS_WRONG, state.wrong); $('wrongQ').value = $('wrongR').value = ''; renderWrong();
     };
 
-    $('openBrowser').onclick = openBrowser;
+    $('newChat').onclick = function () {
+      state.history = []; state.hits = []; $('chat').innerHTML = ''; showWelcome(); setStatus('就绪');
+    };
+    $('navBrowser').onclick = openBrowser;
+    $('navTrends').onclick = openTrends;
+    $('navCites').onclick = openDrawer;
+    $('closeDrawer').onclick = closeDrawer;
+    $('drawerMask').onclick = closeDrawer;
+    $('collapseSide').onclick = function () { $('app').classList.add('side-collapsed'); };
+    $('showSide').onclick = function () { $('app').classList.remove('side-collapsed'); };
+    if (window.innerWidth <= 860) $('app').classList.add('side-collapsed');
+
     $('closeBrowser').onclick = closeBrowser;
     $('chapterModal').onclick = function (e) { if (e.target === $('chapterModal')) closeBrowser(); };
-    $('openTrends').onclick = openTrends;
     $('closeTrends').onclick = closeTrends;
     $('trendModal').onclick = function (e) { if (e.target === $('trendModal')) closeTrends(); };
     document.addEventListener('keydown', function (e) {
-      if (e.key === 'Escape') { closeBrowser(); closeTrends(); }
+      if (e.key === 'Escape') { closeBrowser(); closeTrends(); closeDrawer(); }
     });
     var st = KG.stats || {};
     var statTxt = (st.textbooks || 0) + ' 种教材 / ' + (st.chapters || 0) + ' 章 / ' + (st.questions || 0) + ' 道题';
     $('coverageLine').textContent = '高中数理化 · 大学理工 ｜ 教材章节练习 ｜ ' + statTxt;
-    $('browserStat').textContent = statTxt + '；全部自撰 / 自生成，不含教材与真题原文。';
     $('modalStat').textContent = statTxt + ' · 每章 5 段讲解 + 5 道分层练习';
     renderBooks(); renderChapters(); renderChapterDetail();
 
-    // 深链接：?view=browser 直接打开章节练习，?view=trends 直接打开趋势说明
     try {
       var view = new URLSearchParams(window.location.search).get('view');
       if (view === 'browser') openBrowser();
@@ -577,7 +619,7 @@
   function updateBadge() {
     var b = $('modeBadge');
     b.textContent = state.api ? '模型已接入 · ' + state.api.model : '检索演示模式';
-    b.className = 'status-txt';
+    $('apiStatus').textContent = state.api ? ('已接入：' + state.api.model) : '未配置：返回检索演示模式';
   }
 
   init();

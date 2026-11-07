@@ -6,136 +6,158 @@
 <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate, max-age=0">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>学序 · 教材章节练习与辅导 v0.3.0</title>
-<link rel="stylesheet" href="style.css?v=0.3.0">
+<title>学序 · AI 教学辅导 v0.4.0</title>
+<link rel="stylesheet" href="style.css?v=0.4.0">
 </head>
 <body>
-<header class="topbar">
-  <div class="brand">
-    <span class="brand-mark">学序</span>
-    <span class="brand-sub" id="coverageLine">高中数理化 · 大学理工 ｜ 教材章节练习</span>
-  </div>
-  <div class="topright">
-    <span class="status-txt" id="modeBadge">检索演示模式</span>
-    <button class="textbtn" id="openTrends">命题趋势与版权说明</button>
-    <span class="ver">v0.3.0</span>
-  </div>
-</header>
+<div class="app" id="app">
 
-<div class="layout">
-  <!-- 左：设置 -->
-  <aside class="panel left">
-    <section>
-      <h2>教学方式</h2>
-      <div id="modeList" class="mode-grid"></div>
-    </section>
-
-    <section>
-      <h2>学段与学科</h2>
-      <div class="row">
-        <select id="stageFilter">
-          <option value="all">全部学段</option>
-          <option value="highschool">高中</option>
-          <option value="university">大学</option>
+  <!-- 侧边栏 -->
+  <aside class="sidebar" id="sidebar">
+    <div class="side-top">
+      <div class="logo">学序</div>
+      <button class="iconbtn" id="collapseSide" title="收起侧栏">«</button>
+    </div>
+    <button class="newchat" id="newChat">＋ 新对话</button>
+    <nav class="nav">
+      <button class="navitem" id="navBrowser">教材章节练习</button>
+      <button class="navitem" id="navTrends">命题趋势与版权</button>
+      <button class="navitem" id="navCites">依据与错题</button>
+    </nav>
+    <div class="side-spacer"></div>
+    <div class="side-foot">
+      <details class="apibox" id="apiBox" open>
+        <summary>模型设置</summary>
+        <label class="lbl">服务商预设</label>
+        <select id="apiPreset">
+          <option value="custom">自定义</option>
+          <option value="deepseek">DeepSeek</option>
+          <option value="openai">OpenAI</option>
+          <option value="openrouter">OpenRouter</option>
+          <option value="moonshot">Kimi / Moonshot</option>
         </select>
-        <select id="subjectFilter"><option value="all">全部学科</option></select>
-      </div>
-      <p class="hint" id="scopeCount"></p>
-    </section>
-
-    <section>
-      <h2>知识库</h2>
-      <ul class="srclist" id="sourceList"></ul>
-      <div class="import-box">
-        <label class="btn wide" for="fileInput">导入自备资料（TXT / MD / JSON）</label>
-        <input id="fileInput" type="file" accept=".txt,.md,.markdown,.json,text/plain,application/json" multiple hidden>
-        <p class="hint">文件只在浏览器本地读取，不上传、不分发。PDF 请先转成文本：<code>python scripts/pdf_to_text.py 教材.pdf</code></p>
-      </div>
-      <button class="btn primary wide" id="openBrowser">浏览教材章节 · 逐章练习</button>
-      <p class="hint" id="browserStat"></p>
-    </section>
-
-    <section>
-      <h2>模型设置</h2>
-      <input id="apiBase" type="text" placeholder="接口地址 https://.../v1" autocomplete="off">
-      <input id="apiKey" type="password" placeholder="API Key（仅存本机）" autocomplete="off">
-      <input id="apiModel" type="text" placeholder="模型名" autocomplete="off">
-      <div class="row">
-        <button class="btn" id="saveApi">保存</button>
-        <button class="btn ghost" id="clearApi">清除</button>
-      </div>
-      <p class="hint">未配置时为检索演示模式：只列出命中的知识库片段，不伪装成模型回答。</p>
-    </section>
-
-    <section>
-      <h2>开放语料许可</h2>
-      <ul class="srclist tight" id="licenseList"></ul>
-      <p class="hint">标注「禁商用」的数据集仅供本地研究，产品化前需剔除。</p>
-    </section>
+        <label class="lbl">接口地址</label>
+        <input id="apiBase" type="text" placeholder="https://api.deepseek.com" autocomplete="off">
+        <label class="lbl">API Key</label>
+        <input id="apiKey" type="password" placeholder="仅存本机" autocomplete="off">
+        <label class="lbl">模型名</label>
+        <input id="apiModel" type="text" placeholder="deepseek-chat" autocomplete="off">
+        <div class="row">
+          <button class="btn" id="saveApi">保存</button>
+          <button class="btn ghost" id="clearApi">清除</button>
+        </div>
+        <p class="hint" id="apiStatus">未配置：返回检索演示模式</p>
+        <p class="hint">密钥经本站后端代理转发（规避浏览器跨域），不会上传到第三方。</p>
+      </details>
+      <p class="ver">学序 v0.4.0</p>
+    </div>
   </aside>
 
-  <!-- 中：问答 -->
-  <main class="panel center">
-    <div id="chat" class="chat" aria-live="polite"></div>
-    <div class="composer">
-      <div class="quick" id="quickRow"></div>
-      <textarea id="input" rows="3" placeholder="输入一道题、一个概念，或贴上你的错误解答…（Enter 发送，Shift+Enter 换行）"></textarea>
-      <div class="composer-foot">
-        <span class="hint" id="statusLine">就绪</span>
-        <button class="btn primary" id="sendBtn">发送</button>
+  <!-- 主区 -->
+  <main class="main">
+    <header class="topbar">
+      <button class="iconbtn" id="showSide" title="展开侧栏">≡</button>
+      <div class="top-title" id="coverageLine"></div>
+      <div class="top-right">
+        <span class="badge" id="modeBadge">检索演示模式</span>
       </div>
-    </div>
+    </header>
+
+    <!-- 欢迎页 -->
+    <section class="welcome" id="welcome">
+      <div class="welcome-inner">
+        <h1>学序</h1>
+        <p class="wsub">教材锚定的 AI 教学辅导 · 高中数理化 / 大学理工</p>
+        <div class="askbox">
+          <textarea id="inputWelcome" rows="2" placeholder="问问一道题、一个概念，或贴上你的错误解答…"></textarea>
+          <button class="send" id="sendWelcome" title="发送">↑</button>
+        </div>
+        <div class="examples" id="quickRow"></div>
+      </div>
+    </section>
+
+    <!-- 对话页 -->
+    <section class="chatwrap" id="chatwrap">
+      <div id="chat" class="chat"></div>
+      <div class="composer">
+        <div class="modechips" id="modeChips"></div>
+        <div class="askbox bottom">
+          <textarea id="input" rows="2" placeholder="输入题目或概念…（Enter 发送，Shift+Enter 换行）"></textarea>
+          <button class="send" id="sendBtn" title="发送">↑</button>
+        </div>
+        <div class="composer-foot"><span class="hint" id="statusLine">就绪</span></div>
+      </div>
+    </section>
   </main>
 
-  <!-- 右：依据与错题 -->
-  <aside class="panel right">
-    <section>
-      <h2>本轮依据</h2>
-      <div id="citations" class="cites"><p class="hint">提问后显示命中的知识点与章节。</p></div>
-    </section>
-    <section>
-      <h2>知识点索引</h2>
-      <div id="kgList" class="kglist"></div>
-    </section>
-    <section>
-      <h2>错题本</h2>
-      <div class="row"><input id="wrongQ" type="text" placeholder="题目摘要"><input id="wrongR" type="text" placeholder="错因"></div>
-      <button class="btn ghost wide" id="addWrong">加入错题本</button>
-      <ul class="wronglist" id="wrongList"></ul>
-    </section>
+  <!-- 依据抽屉 -->
+  <div class="drawer-mask" id="drawerMask"></div>
+  <aside class="drawer" id="citeDrawer">
+    <div class="drawer-head">
+      <h3>依据与错题</h3>
+      <button class="iconbtn" id="closeDrawer">×</button>
+    </div>
+    <div class="drawer-body">
+      <section><h2>检索范围</h2>
+        <div class="row">
+          <select id="stageFilter">
+            <option value="all">全部学段</option>
+            <option value="highschool">高中</option>
+            <option value="university">大学</option>
+          </select>
+          <select id="subjectFilter"><option value="all">全部学科</option></select>
+        </div>
+        <p class="hint" id="scopeCount"></p>
+      </section>
+      <section><h2>本轮依据</h2><div id="citations" class="cites"><p class="hint">提问后显示命中的知识点与章节。</p></div></section>
+      <section><h2>知识点索引</h2><div id="kgList" class="kglist"></div></section>
+      <section><h2>错题本</h2>
+        <div class="row"><input id="wrongQ" type="text" placeholder="题目摘要"><input id="wrongR" type="text" placeholder="错因"></div>
+        <button class="btn ghost wide" id="addWrong">加入错题本</button>
+        <ul class="wronglist" id="wrongList"></ul>
+      </section>
+      <section><h2>知识库</h2>
+        <ul class="srclist" id="sourceList"></ul>
+        <label class="importbtn" for="fileInput">导入自备资料（TXT / MD / JSON）</label>
+        <input id="fileInput" type="file" accept=".txt,.md,.markdown,.json,text/plain,application/json" multiple hidden>
+        <p class="hint">文件只在浏览器本地读取，不上传、不分发。PDF 请先转成文本：<code>python scripts/pdf_to_text.py 教材.pdf</code></p>
+      </section>
+      <section><h2>开放语料许可</h2><ul class="srclist tight" id="licenseList"></ul></section>
+    </div>
   </aside>
-</div>
 
-<!-- 教材章节浏览 -->
-<div id="chapterModal" class="modal hidden">
-  <div class="modal-box">
-    <div class="modal-head">
-      <h3>教材章节练习 <span class="hint" id="modalStat"></span></h3>
-      <button class="btn ghost" id="closeBrowser">关闭</button>
-    </div>
-    <div class="modal-body">
-      <div class="col-books" id="bookList"></div>
-      <div class="col-chapters" id="chapterList"></div>
-      <div class="col-detail" id="chapterDetail"></div>
+  <!-- 教材章节浏览 -->
+  <div id="chapterModal" class="modal hidden">
+    <div class="modal-box">
+      <div class="modal-head">
+        <h3>教材章节练习 <span class="hint" id="modalStat"></span></h3>
+        <button class="btn ghost" id="closeBrowser">关闭</button>
+      </div>
+      <div class="modal-body">
+        <div class="col-books" id="bookList"></div>
+        <div class="col-chapters" id="chapterList"></div>
+        <div class="col-detail" id="chapterDetail"></div>
+      </div>
     </div>
   </div>
-</div>
 
-<!-- 命题趋势与版权说明 -->
-<div id="trendModal" class="modal hidden">
-  <div class="modal-box">
-    <div class="modal-head">
-      <h3>近五年命题趋势与版权边界 <span class="hint">调研摘要 · 不含试卷原文</span></h3>
-      <button class="btn ghost" id="closeTrends">关闭</button>
-    </div>
-    <div class="modal-body single">
-      <div class="trend-wrap" id="trendBody"></div>
+  <!-- 命题趋势与版权说明 -->
+  <div id="trendModal" class="modal hidden">
+    <div class="modal-box">
+      <div class="modal-head">
+        <h3>近五年命题趋势与版权边界 <span class="hint">调研摘要 · 不含试卷原文</span></h3>
+        <button class="btn ghost" id="closeTrends">关闭</button>
+      </div>
+      <div class="modal-body single">
+        <div class="trend-wrap" id="trendBody"></div>
+      </div>
     </div>
   </div>
+
 </div>
 
-<script src="knowledge.js?v=0.3.0"></script>
-<script src="trends.js?v=0.3.0"></script>
-<script src="app.js?v=0.3.0"></script>
+<script src="knowledge.js?v=0.4.0"></script>
+<script src="trends.js?v=0.4.0"></script>
+<script src="app.js?v=0.4.0"></script>
 </body>
 </html>

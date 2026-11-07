@@ -1,7 +1,7 @@
-# 面向中国高中 / 大学生的大模型：调研结论与实施路线（v0.3.0）
+# 面向中国高中 / 大学生的大模型：调研结论与实施路线（v0.4.0）
 
 > **GitHub**：<https://github.com/Hex1um/edu-llm> ｜ **在线演示**：<https://xuexu-tutor.app.workbuddy.host/?sharecode=JIHHAP7ZVP>
-> **v0.3.0**：39 种理工教材 / 197 章 / 1130 道题；每章 5 段加深理解 + 5 道分层练习（分值 5:3:2），含 10 道原创高中数学高区分度题；界面去 AI 风（见第 11 节）。
+> **v0.4.0**：39 种理工教材 / 197 章 / 1130 道题；DeepSeek 风格 UI（左栏 + 居中对话 + 底部圆角发送框）；模型请求经本站同源代理 `/api/chat` 转发，彻底规避浏览器跨域导致的「连接失败」（见第 12 节）。
 > 调研日期：2026-11-07 ｜ 参考项目：`haolpku/Omni-Edu`、`HKUDS/DeepTutor`
 > 结论先说：**不可能合法地"搜到所有中国高中和大学课本与练习册全文"，而且并不必要。**
 > 可行且不违规的形态是：**书目 / 课标知识图谱做"全量"，全文语料做"少量合法 + 用户自备"，模型用开源基座做轻量适配，应用做成 RAG 辅导工作台。**
@@ -198,7 +198,7 @@ GitHub API           : 200  login=Hex1um  scopes=repo    （建仓认证）
 | 云服务分享链接 | <https://xuexu-tutor.app.workbuddy.host/?sharecode=JIHHAP7ZVP> |
 | 部署形态 | `http-service`，Python 单端口，`startCmd: python3 server.py`，`PORT` 由平台注入 |
 | 服务根目录 | `app/`（只暴露前端，仓库里的 `data/`、`scripts/` 不经 HTTP 发布） |
-| 缓存治理 | 服务端全量 `Cache-Control: no-store, no-cache, must-revalidate, max-age=0` + `Pragma: no-cache` + `Expires: 0`；另有 `app/_headers` 静态兜底、HTML meta 三件套、资源 `?v=0.3.0`、API 请求 `cache: 'no-store'` |
+| 缓存治理 | 服务端全量 `Cache-Control: no-store, no-cache, must-revalidate, max-age=0` + `Pragma: no-cache` + `Expires: 0`；另有 `app/_headers` 静态兜底、HTML meta 三件套、资源 `?v=0.4.0`、API 请求 `cache: 'no-store'` |
 
 仓库文件：`app/`（前端）、`data/`（6 份资源/合规/章节 JSON）、`scripts/`（章节总表、生成器、PDF 转换、兼容入口）、`server.py`、`LICENSE`、`.gitignore`。
 
@@ -351,3 +351,38 @@ DOM id 一致性       : app.js 引用的 34 个 id 在 index.html 中全部存�
 3. 未做 `kb eval`（Recall@k / nDCG / MRR），检索仍只有 BM25。
 4. `app/knowledge.js` 约 2.6 MB（未压缩），移动端首次加载会偏慢；后续可按章节懒加载或加 gzip。
 5. 未微调模型；浏览器直连部分模型 API 可能受 CORS 限制。
+
+---
+
+## 12. v0.4.0 — 修复「接入 API 总连接失败」+ DeepSeek 风格 UI
+
+### 12.1 连接失败的根因与修复
+
+用户反馈「接入 API 后似乎总是连接失败」。根因不是配置错误，而是**架构问题**：原 `app.js` 让浏览器直接 `fetch` 第三方 OpenAI 兼容接口（DeepSeek / OpenAI 等），这些域名通常不发 `Access-Control-Allow-Origin`，浏览器在 CORS 阶段直接拦截，表现为「连接失败 / 网络错误」。
+
+修复：在 `server.py` 增加**同源代理** `/api/chat`。
+
+- 浏览器只把请求发到本站同域 `/api/chat`（携带 `{base, key, model, messages, temperature}`），由服务端用 `urllib` 转发到上游，避开浏览器跨域。
+- 接口地址智能归一：`https://api.deepseek.com` → `…/v1/chat/completions`；填 `…/v1` → 补 `/chat/completions`；填完整路径则原样使用。
+- 错误可读化：上游 401/404/429 透传原文；上游不可达返回 `{error: "无法连接上游模型服务（…）"}`，不再抛出让人看不懂的 CORS 报错。
+- 密钥仅存本机 `localStorage`，仅在该次转发时经本站后端短暂透传，不上传第三方、不落盘。
+
+> 注：`/api/chat` 为服务端转发，要求部署环境能访问目标模型域名。若云端沙箱禁出网，仍会返回 502（已给出明确提示）。本地 `python server.py` 不受影响。
+
+### 12.2 DeepSeek 风格 UI
+
+- 左栏：学序 logo、＋新对话、导航（教材章节练习 / 命题趋势与版权 / 依据与错题）、模型设置（服务商预设 + 接口地址 + Key + 模型名）。窄屏自动收起为抽屉式。
+- 主区：欢迎页（居中标题 + 圆角输入框 + 示例问题），对话页（居中消息流 + 底部圆角输入与圆形发送键 + 辅导方式 chips）。
+- 依据与错题改为右侧抽屉，按需展开，保持主区对话清爽。
+- 白底、细线、单一蓝强调色，去渐变 / 发光 / 装饰徽章。
+
+### 12.3 验证
+
+```
+node --check      : app.js / knowledge.js / trends.js 通过
+python -m py_compile: server.py + scripts/*.py 通过
+DOM id 一致性     : app.js 引用的全部 id 在 index.html 中存在，无缺失
+/api/chat 自测    : 裸域名→/v1/chat/completions 归一正确；正常转发 200；空 base→400；
+                   上游不可达→502，均返回可读 JSON；静态资源 Cache-Control: no-store
+Edge 无头截图     : 欢迎页 / 章节浏览器 / 趋势面板均正常渲染，无空白错乱
+```

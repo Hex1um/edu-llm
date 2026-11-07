@@ -1,4 +1,4 @@
-"""把章节骨架总表扩成完整知识库（v0.3.0 命题趋势版）。
+"""把章节骨架总表扩成完整知识库（v0.4.0 命题趋势版）。
 
 输入：
   scripts/curriculum_hs.py              高中数理化章节骨架
@@ -31,7 +31,7 @@ import curriculum_hs  # noqa: E402
 import curriculum_uni  # noqa: E402
 import question_bank  # noqa: E402
 
-VERSION = "0.3.0"
+VERSION = "0.4.0"
 FIELDS = 13
 
 # 精讲专题沿用的旧版短 id → 中文名（仅用于显示先修关系，不参与检索）
@@ -113,7 +113,7 @@ def make_deep_dive(n, index):
 
 
 def enrich_featured(n, index, seq):
-    """给人工精讲章节补齐统一字段，保留其手写例题，并套用 v0.3.0 分层练习。"""
+    """给人工精讲章节补齐统一字段，保留其手写例题，并套用 v0.4.0 分层练习。"""
     pre = n.get("prerequisites", [])
     pre_txt = "、".join(pre_names(pre, index)) or "基础概念"
     concepts = [n["name"]] + (n.get("misconceptions") or [])[:2]
