@@ -6,8 +6,8 @@
 <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate, max-age=0">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>学序 · AI 教学辅导 v0.4.0</title>
-<link rel="stylesheet" href="style.css?v=0.4.0">
+<title>学序 · AI 教学辅导 v0.4.1</title>
+<link rel="stylesheet" href="style.css?v=0.4.1">
 </head>
 <body>
 <div class="app" id="app">
@@ -28,28 +28,36 @@
     <div class="side-foot">
       <details class="apibox" id="apiBox" open>
         <summary>模型设置</summary>
-        <label class="lbl">服务商预设</label>
-        <select id="apiPreset">
-          <option value="custom">自定义</option>
-          <option value="deepseek">DeepSeek</option>
-          <option value="openai">OpenAI</option>
-          <option value="openrouter">OpenRouter</option>
-          <option value="moonshot">Kimi / Moonshot</option>
+        <label class="lbl">模型来源</label>
+        <select id="apiSource">
+          <option value="free">免费源（默认 · 无需 Key）</option>
+          <option value="custom">自定义 OpenAI 兼容端点</option>
         </select>
-        <label class="lbl">接口地址</label>
-        <input id="apiBase" type="text" placeholder="https://api.deepseek.com" autocomplete="off">
-        <label class="lbl">API Key</label>
-        <input id="apiKey" type="password" placeholder="仅存本机" autocomplete="off">
-        <label class="lbl">模型名</label>
-        <input id="apiModel" type="text" placeholder="deepseek-chat" autocomplete="off">
-        <div class="row">
-          <button class="btn" id="saveApi">保存</button>
-          <button class="btn ghost" id="clearApi">清除</button>
+        <p class="hint" id="freeNote">默认走匿名免费模型：Kilo Gateway（kilo-auto/free）→ Pollinations（openai-fast）自动回退。无需注册、无需 Key。提示词可能被上游记录，请勿粘贴敏感内容。</p>
+        <div id="customFields" class="hidden">
+          <label class="lbl">服务商预设</label>
+          <select id="apiPreset">
+            <option value="custom">自定义</option>
+            <option value="deepseek">DeepSeek</option>
+            <option value="openai">OpenAI</option>
+            <option value="openrouter">OpenRouter</option>
+            <option value="moonshot">Kimi / Moonshot</option>
+          </select>
+          <label class="lbl">接口地址</label>
+          <input id="apiBase" type="text" placeholder="https://api.deepseek.com" autocomplete="off">
+          <label class="lbl">API Key</label>
+          <input id="apiKey" type="password" placeholder="仅存本机（免费端点可留空）" autocomplete="off">
+          <label class="lbl">模型名</label>
+          <input id="apiModel" type="text" placeholder="deepseek-chat" autocomplete="off">
+          <div class="row">
+            <button class="btn" id="saveApi">保存</button>
+            <button class="btn ghost" id="clearApi">清除</button>
+          </div>
+          <p class="hint">密钥仅存本机，经本站后端代理转发（规避浏览器跨域），不会上传到第三方。</p>
         </div>
-        <p class="hint" id="apiStatus">未配置：返回检索演示模式</p>
-        <p class="hint">密钥经本站后端代理转发（规避浏览器跨域），不会上传到第三方。</p>
+        <p class="hint" id="apiStatus">默认免费源：Kilo → Pollinations 自动回退；无需 API Key。</p>
       </details>
-      <p class="ver">学序 v0.4.0</p>
+      <p class="ver">学序 v0.4.1</p>
     </div>
   </aside>
 
@@ -156,8 +164,8 @@
 
 </div>
 
-<script src="knowledge.js?v=0.4.0"></script>
-<script src="trends.js?v=0.4.0"></script>
-<script src="app.js?v=0.4.0"></script>
+<script src="knowledge.js?v=0.4.1"></script>
+<script src="trends.js?v=0.4.1"></script>
+<script src="app.js?v=0.4.1"></script>
 </body>
 </html>

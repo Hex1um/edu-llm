@@ -1,7 +1,7 @@
-# 面向中国高中 / 大学生的大模型：调研结论与实施路线（v0.4.0）
+# 面向中国高中 / 大学生的大模型：调研结论与实施路线（v0.4.1）
 
 > **GitHub**：<https://github.com/Hex1um/edu-llm> ｜ **在线演示**：<https://xuexu-tutor.app.workbuddy.host/?sharecode=JIHHAP7ZVP>
-> **v0.4.0**：39 种理工教材 / 197 章 / 1130 道题；DeepSeek 风格 UI（左栏 + 居中对话 + 底部圆角发送框）；模型请求经本站同源代理 `/api/chat` 转发，彻底规避浏览器跨域导致的「连接失败」（见第 12 节）。
+> **v0.4.1**：默认接入**匿名免费模型**（Kilo Gateway → Pollinations 自动回退，无需任何 Key）；DeepSeek 风格 UI；1130 道题按章节分类索引（见第 13 节）。
 > 调研日期：2026-11-07 ｜ 参考项目：`haolpku/Omni-Edu`、`HKUDS/DeepTutor`
 > 结论先说：**不可能合法地"搜到所有中国高中和大学课本与练习册全文"，而且并不必要。**
 > 可行且不违规的形态是：**书目 / 课标知识图谱做"全量"，全文语料做"少量合法 + 用户自备"，模型用开源基座做轻量适配，应用做成 RAG 辅导工作台。**
@@ -385,4 +385,39 @@ DOM id 一致性     : app.js 引用的全部 id 在 index.html 中存在，无�
 /api/chat 自测    : 裸域名→/v1/chat/completions 归一正确；正常转发 200；空 base→400；
                    上游不可达→502，均返回可读 JSON；静态资源 Cache-Control: no-store
 Edge 无头截图     : 欢迎页 / 章节浏览器 / 趋势面板均正常渲染，无空白错乱
+```
+
+---
+
+## 13. v0.4.1 — 默认接入匿名免费模型（无需 Key）
+
+参考 `Hex1um/hallucindriod` 的「多源竞速 + fallback」策略，把默认模型源改为**匿名免费端点**，彻底免去注册 / API Key / 401 鉴权失败的困扰。
+
+### 13.1 免费源（默认，零配置）
+
+| 顺序 | 源 | 端点 | 模型 | Key |
+|---|---|---|---|---|
+| 1 | Kilo Gateway | `https://api.kilo.ai/api/gateway` | `kilo-auto/free`（自动路由免费模型，如 ernie / nemotron 等） | 不需要 |
+| 2 | Pollinations | `https://text.pollinations.ai/openai` | `openai-fast`（实测 gpt-oss-20b） | 不需要 |
+
+- `server.py` 的 `/api/chat` 在 `source=free` 时按上表顺序尝试，任一返回有效 `choices[0].message.content` 即止；单源超时 25 秒；全失败返回 502 + 可读错误（含每个源的失败原因）。
+- 服务端转发不带浏览器 `Origin`，因此不会触发 Pollinations 对 localhost / 未登记来源的 Turnstile 人机验证（这正是参考项目要用 `dev-proxy.mjs` 解决的问题，本项目天然规避）。
+- 实测：Kilo 正常时约 2.4s 返回，Kilo 偶发空内容时自动落到 Pollinations（约 7.6s），数学回答正确。
+- 界面：模型设置新增「模型来源」下拉（免费源默认 / 自定义端点），免费模式下隐藏自定义字段；右上角状态徽章显示「免费模型 · 无需 Key」；每条回答标注实际使用的源与模型。
+- **自定义端点仍保留**：切到「自定义」后填接口地址 / 模型名（无 Key 的端点 Key 可留空），经同一代理透传；旧配置自动兼容。
+
+### 13.2 隐私与合规提示
+
+- 免费源的提示词**可能被上游服务商记录并用于改进服务**：请勿粘贴敏感信息、公司代码、未公开内容或受版权保护的教材 / 试卷原文。
+- 本项目自身不存储任何提问与回答；自定义 Key 仅存浏览器本机。
+- 题目仍为原创 / 自生成，不含任何第三方试卷原文（见第 3、11 节）。
+
+### 13.3 验证
+
+```
+py_compile / node --check / DOM id 一致性：全通过
+免费链路实测：Kilo 200（2.4s，ernie-5.5-flash:free），Pollinations 200（gpt-oss-20b）；
+               Kilo 空内容时自动回退到 Pollinations；全失败→502 可读错误
+自定义链路实测：source=custom 与旧式 base 均 200；未知 source→400
+Edge 无头截图：默认免费源界面正常，自定义字段隐藏，徽章正确
 ```

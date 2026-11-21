@@ -1,4 +1,4 @@
-/* 学序 v0.4.0 — DeepSeek 风格教材锚定辅导工作台
+/* 学序 v0.4.1 — DeepSeek 风格教材锚定辅导工作台
    设计参考：OmniEdu（教学指令分类、课程锚定、错因诊断）
              DeepTutor（可溯源 RAG、版本化来源、错题与掌握度）
    命题依据：data/exam_trends.json（近五年趋势调研摘要，不转载试卷原文）
@@ -9,7 +9,7 @@
 
   var KG = window.KG || { nodes: [] };
   var TRENDS = window.TRENDS || {};
-  var VERSION = '0.4.0';
+  var VERSION = '0.4.1';
   var LS_API = 'xuexu.api';
   var LS_WRONG = 'xuexu.wrongbook';
 
@@ -34,6 +34,8 @@
     openrouter: { base: 'https://openrouter.ai/api/v1', model: 'openai/gpt-4o-mini' },
     moonshot: { base: 'https://api.moonshot.cn/v1', model: 'moonshot-v1-8k' }
   };
+  // 免费源（无需 Key）：与服务端 server.py 的 FREE_SOURCES 对应，仅用于界面说明
+  var FREE_SOURCE_LABELS = ['Kilo Gateway · 免费自动路由', 'Pollinations · 极速'];
 
   /* B 级开放语料：许可标签决定能否进入产品化训练/服务 */
   var OPEN_SOURCES = [
@@ -47,10 +49,12 @@
 
   var state = {
     mode: 'solve', stage: 'all', subject: 'all',
+    source: 'free',          // 默认匿名免费源，无需任何 Key
     api: null, docs: [], imported: [], hits: [],
     history: [], wrong: [], busy: false,
     activeBook: null, activeChapter: null
   };
+  var LS_SOURCE = 'xuexu.source';
 
   var $ = function (id) { return document.getElementById(id); };
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
@@ -417,7 +421,7 @@
       } else parts.push(d.text.slice(0, 400));
       return parts.join('\n');
     }).join('\n\n');
-    return head + '\n' + body + '\n\n下一步：在左侧「模型设置」填入接口地址与 Key，即可用六种辅导方式生成教学回应。';
+    return head + '\n' + body + '\n\n下一步：网络恢复后重试即可用免费模型（无需 Key）生成教学回应；也可在左侧「模型设置」切到自定义端点。';
   }
   async function callModel(q, hits) {
     var mode = MODES.filter(function (m) { return m.id === state.mode; })[0];
@@ -427,20 +431,26 @@
       .concat(state.history.slice(-6))
       .concat([{ role: 'user', content: q }]);
     // 经本站同源代理转发，规避浏览器跨域（CORS）
+    var payload = { source: state.source, messages: msgs, temperature: 0.4 };
+    if (state.source === 'custom') {
+      payload.base = state.api ? state.api.base : '';
+      payload.key = state.api ? state.api.key : '';
+      payload.model = state.api ? state.api.model : '';
+    }
     var resp = await fetch('/api/chat', {
       method: 'POST', cache: 'no-store',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ base: state.api.base, key: state.api.key, model: state.api.model,
-        messages: msgs, temperature: 0.4 })
+      body: JSON.stringify(payload)
     });
+    var raw = await resp.text();
+    var data = null;
+    try { data = JSON.parse(raw); } catch (e) { /* 非 JSON */ }
     if (!resp.ok) {
-      var msg = '';
-      try { var j = await resp.json(); msg = (j && j.error) || ('HTTP ' + resp.status); }
-      catch (e) { msg = 'HTTP ' + resp.status; }
+      var msg = (data && data.error) || ('HTTP ' + resp.status);
       throw new Error(msg);
     }
-    var data = await resp.json();
-    return (data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content) || '（模型返回为空）';
+    var ans = (data && data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content) || '（模型返回为空）';
+    return { text: ans, label: (data && data._source) || (resp.headers.get('X-LLM-Source') || '') };
   }
 
   function activeInput() { return document.body.classList.contains('in-chat') ? $('input') : $('inputWelcome'); }
@@ -459,22 +469,19 @@
     var idx = buildIndex(scopedDocs().concat(state.imported));
     var hits = search(idx, q, 4);
     state.hits = hits; renderCitations();
-    if (state.api) {
-      setStatus('调用模型中…');
-      addMsg('sys', '检索到 ' + hits.length + ' 条依据，已连同教学指令经本站代理送入模型。');
-      try {
-        var ans = await callModel(q, hits);
-        addMsg('ai', esc(ans));
-        state.history.push({ role: 'user', content: q }, { role: 'assistant', content: ans });
-        setStatus('完成');
-      } catch (e) {
-        addMsg('sys', '模型调用失败：' + esc(e.message) + '。已降级为检索演示，不伪造回答。');
-        addMsg('ai', esc(demoAnswer(q, hits)));
-        setStatus('模型失败，已降级');
-      }
-    } else {
+    addMsg('sys', '检索到 ' + hits.length + ' 条依据，已连同教学指令经本站代理送入' +
+      (state.source === 'free' ? '免费模型（无需 Key）' : '自定义模型') + '。');
+    setStatus(state.source === 'free' ? '调用免费模型中…' : '调用模型中…');
+    try {
+      var res = await callModel(q, hits);
+      var tag = res.label ? '\n\n〔回答来源：' + esc(res.label) + '〕' : '';
+      addMsg('ai', esc(res.text) + tag);
+      state.history.push({ role: 'user', content: q }, { role: 'assistant', content: res.text });
+      setStatus('完成' + (res.label ? ' · ' + res.label : ''));
+    } catch (e) {
+      addMsg('sys', '模型调用失败：' + esc(e.message) + '。已降级为检索演示，不伪造回答。');
       addMsg('ai', esc(demoAnswer(q, hits)));
-      setStatus('检索演示完成（未配置模型）');
+      setStatus('模型失败，已降级');
     }
     state.busy = false; $('sendBtn').disabled = false; $('sendWelcome').disabled = false;
   }
@@ -530,6 +537,8 @@
   function init() {
     state.docs = KG.nodes.map(nodeToDoc);
     state.api = readLS(LS_API, null) || readLS('xuexu.api.0.2.0', null) || readLS('xuexu.api.0.1.0', null);
+    state.source = readLS(LS_SOURCE, 'free');
+    if (state.source !== 'free' && state.source !== 'custom') state.source = 'free';
     state.wrong = readLS(LS_WRONG, []);
     if (!state.wrong || !state.wrong.length) state.wrong = readLS('xuexu.wrongbook.0.2.0', []) || [];
     renderModes(); renderFilters(); renderSources(); renderCitations(); renderKG(); renderWrong();
@@ -537,6 +546,8 @@
     $('apiBase').value = state.api ? state.api.base : '';
     $('apiKey').value = state.api ? state.api.key : '';
     $('apiModel').value = state.api ? state.api.model : '';
+    $('apiSource').value = state.source;
+    applySourceUI();
     updateBadge();
     var st0 = KG.stats || {};
     addMsg('sys', '学序 v' + VERSION + '：' + (st0.textbooks || 0) + ' 种教材 / ' +
@@ -545,7 +556,8 @@
       '<h4>命题趋势</h4>侧栏「命题趋势与版权」记录近五年趋势调研、七类题型与试卷来源核查结论。' +
       '<h4>内容边界</h4>只含书目 / 章节骨架与本项目自撰讲解、题目，不含教材、教辅、真题或模考卷原文；' +
       (st0.original_questions || 0) + ' 道原创高区分度题为手工校订，其余标注「自生成 · 建议教师审核」。' +
-      '<h4>演示模式</h4>未配置模型时只返回检索片段并明确标注，不会假装是模型回答。');
+      '<h4>免费模型（默认）</h4>无需 API Key，直接提问即可调用匿名免费模型（Kilo / Pollinations，经本站代理）；全部失败才降级为检索演示，不伪造回答。' +
+      '<h4>隐私</h4>免费源的提示词可能被上游记录，请勿粘贴敏感或未公开内容；本项目不存储提问。');
 
     $('quickRow').innerHTML = [
       '导数为零一定是极值点吗？', '新定义题该从哪里下手',
@@ -562,16 +574,23 @@
     $('input').onkeydown = function (e) { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } };
     $('inputWelcome').onkeydown = function (e) { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } };
     $('fileInput').onchange = function () { handleFiles(this.files); this.value = ''; };
+    $('apiSource').onchange = function () {
+      state.source = this.value; writeLS(LS_SOURCE, state.source); applySourceUI(); updateBadge();
+      setStatus(state.source === 'free' ? '已切到免费源（无需 Key）' : '已切到自定义端点');
+    };
     $('saveApi').onclick = function () {
       var b = $('apiBase').value.trim(), k = $('apiKey').value.trim(), m = $('apiModel').value.trim();
-      if (!b || !k || !m) { setStatus('请填完整接口地址 / key / 模型名'); return; }
-      state.api = { base: b, key: k, model: m }; writeLS(LS_API, state.api); updateBadge();
-      setStatus('模型已配置（密钥仅存本机，经本站代理转发）');
+      if (!b || !m) { setStatus('请填完整接口地址 / 模型名（无 Key 的免费端点 Key 可留空）'); return; }
+      state.api = { base: b, key: k, model: m }; writeLS(LS_API, state.api);
+      state.source = 'custom'; $('apiSource').value = 'custom'; writeLS(LS_SOURCE, 'custom');
+      applySourceUI(); updateBadge();
+      setStatus('自定义端点已保存（密钥仅存本机，经本站代理转发）');
     };
     $('clearApi').onclick = function () {
       state.api = null; writeLS(LS_API, null);
       $('apiBase').value = $('apiKey').value = $('apiModel').value = '';
-      updateBadge(); setStatus('已切回检索演示模式');
+      state.source = 'free'; $('apiSource').value = 'free'; writeLS(LS_SOURCE, 'free');
+      applySourceUI(); updateBadge(); setStatus('已切回免费源（无需 Key）');
     };
     $('apiPreset').onchange = function () {
       var p = PRESETS[this.value];
@@ -616,10 +635,20 @@
       if (view === 'trends') openTrends();
     } catch (e) { /* 老浏览器忽略 */ }
   }
+  function applySourceUI() {
+    var custom = state.source === 'custom';
+    if ($('customFields')) $('customFields').classList.toggle('hidden', !custom);
+    if ($('freeNote')) $('freeNote').classList.toggle('hidden', custom);
+  }
   function updateBadge() {
     var b = $('modeBadge');
-    b.textContent = state.api ? '模型已接入 · ' + state.api.model : '检索演示模式';
-    $('apiStatus').textContent = state.api ? ('已接入：' + state.api.model) : '未配置：返回检索演示模式';
+    if (state.source === 'free') {
+      b.textContent = '免费模型 · 无需 Key';
+      if ($('apiStatus')) $('apiStatus').textContent = '默认免费源：Kilo → Pollinations 自动回退；无需 API Key。';
+    } else {
+      b.textContent = '自定义 · ' + (state.api ? state.api.model : '未配置');
+      if ($('apiStatus')) $('apiStatus').textContent = state.api ? ('已接入：' + state.api.model) : '自定义端点未配置，请填写地址与模型名。';
+    }
   }
 
   init();

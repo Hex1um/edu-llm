@@ -1,4 +1,4 @@
-/* 学序 v0.4.0 — DeepSeek 风格：白底、细线、单一蓝强调色、居中对话、左侧栏 */
+/* 学序 v0.4.1 — DeepSeek 风格：白底、细线、单一蓝强调色、居中对话、左侧栏 */
 :root{
   --bg:#ffffff; --soft:#f7f8f9; --soft2:#f1f3f5;
   --line:#eceef1; --line2:#dde1e6;
@@ -15,6 +15,7 @@ body{
   font-size:14px; line-height:1.75;
 }
 h1,h2,h3,p,ul{margin:0}
+.hidden{display:none !important}
 ul{list-style:none;padding:0}
 code{font-family:Consolas,Monaco,monospace;font-size:12px;background:var(--soft2);padding:1px 4px;color:var(--text)}
 a{color:var(--accent)}
