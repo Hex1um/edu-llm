@@ -1,4 +1,4 @@
-/* 学序 v0.4.1 — DeepSeek 风格教材锚定辅导工作台
+/* 学序 v0.4.2 — DeepSeek 风格教材锚定辅导工作台
    设计参考：OmniEdu（教学指令分类、课程锚定、错因诊断）
              DeepTutor（可溯源 RAG、版本化来源、错题与掌握度）
    命题依据：data/exam_trends.json（近五年趋势调研摘要，不转载试卷原文）
@@ -9,7 +9,8 @@
 
   var KG = window.KG || { nodes: [] };
   var TRENDS = window.TRENDS || {};
-  var VERSION = '0.4.1';
+  var OFFICIAL = window.OFFICIAL || {};
+  var VERSION = '0.4.2';
   var LS_API = 'xuexu.api';
   var LS_WRONG = 'xuexu.wrongbook';
 
@@ -380,6 +381,56 @@
   function openTrends() { renderTrends(); $('trendModal').classList.remove('hidden'); }
   function closeTrends() { $('trendModal').classList.add('hidden'); }
 
+  /* ---------- 官方题库渠道（用户自助获取，本项目不抓取） ---------- */
+  function renderOfficial() {
+    var box = $('officialBody');
+    if (!OFFICIAL.version) { box.innerHTML = '<p class="hint">渠道数据未加载（official.js）。</p>'; return; }
+    var h = '';
+    h += '<p class="lead">' + esc(OFFICIAL.principle || '') + '</p>';
+    var q = OFFICIAL.verified_quote || {};
+    h += '<p class="note">平台条款原文（' + esc(q.source || '') + '）：「' + esc(q.text || '') + '」 — ' + esc(q.url || '') + '</p>';
+
+    h += '<h4>自助导题步骤（重要）</h4>' + li(OFFICIAL.how_to_use);
+
+    h += '<h4>官方 / 权威渠道</h4>';
+    (OFFICIAL.channels || []).forEach(function (c) {
+      h += '<div class="chan">';
+      h += '<div class="chan-head"><b>' + esc(c.name) + '</b> <span class="tag ' +
+        (c.tier === 'A' ? 'ok' : 'nc') + '">' + (c.login_required ? '需登录' : '公开') + '</span></div>';
+      h += '<div class="chan-org">' + esc(c.org || '') + '</div>';
+      if (c.url) h += '<p><a href="' + esc(c.url) + '" target="_blank" rel="noopener noreferrer">' + esc(c.url) + ' ↗</a></p>';
+      if (c.entry) h += '<p><b>入口路径：</b>' + esc(c.entry) + '</p>';
+      if (c.coverage) {
+        if (typeof c.coverage === 'string') {
+          h += '<p><b>覆盖：</b>' + esc(c.coverage) + '</p>';
+        } else {
+          if (c.coverage['同步练习']) h += '<p><b>同步练习：</b>' + esc(c.coverage['同步练习']) + '</p>';
+          if (c.coverage['进阶练习']) h += '<p><b>进阶练习：</b>' + esc(c.coverage['进阶练习']) + '</p>';
+          if (c.coverage.scale) h += '<p><b>规模：</b>' + esc(c.coverage.scale) + '</p>';
+        }
+      }
+      if (c.channels) h += '<ul>' + c.channels.map(function (x) {
+        return '<li><a href="' + esc(x.url) + '" target="_blank" rel="noopener noreferrer">' + esc(x.name) + ' ↗</a></li>';
+      }).join('') + '</ul>';
+      if (c.examples) h += '<p><b>示例评析：</b>' + c.examples.map(function (u) {
+        return '<a href="' + esc(u) + '" target="_blank" rel="noopener noreferrer">查看 ↗</a>';
+      }).join(' · ') + '</p>';
+      if (c.download) h += '<p><b>下载：</b>' + esc(c.download) + '</p>';
+      if (c.terms) h += '<p class="chan-terms"><b>条款：</b>' + esc(c.terms) + '</p>';
+      h += '<p class="chan-use"><b>本项目做法：</b>' + esc(c.our_use || '') + '</p>';
+      h += '</div>';
+    });
+
+    h += '<h4>不纳入的渠道及原因</h4>';
+    h += table(['渠道', '不纳入原因'], (OFFICIAL.not_included_and_why || []).map(function (x) {
+      return [x.channel, x.reason];
+    }));
+    h += '<p class="note">' + esc(OFFICIAL.principle || '') + '</p>';
+    box.innerHTML = h;
+  }
+  function openOfficial() { renderOfficial(); $('officialModal').classList.remove('hidden'); }
+  function closeOfficial() { $('officialModal').classList.add('hidden'); }
+
   function renderWrong() {
     $('wrongList').innerHTML = state.wrong.length ? state.wrong.map(function (w, i) {
       return '<li><span class="del" data-i="' + i + '">×</span><b>' + esc(w.q) + '</b><br>' +
@@ -553,6 +604,7 @@
     addMsg('sys', '学序 v' + VERSION + '：' + (st0.textbooks || 0) + ' 种教材 / ' +
       (st0.chapters || 0) + ' 章 / ' + (st0.questions || 0) + ' 道题，覆盖高中数理化与大学理工核心课程。' +
       '<h4>逐章练习</h4>点侧栏「教材章节练习」→ 选教材 → 选章：每章 5 段加深理解、5 道分层练习（基础 2 / 中档 2 / 高区分度 1，分值 5:3:2），含答案、解析与评分要点。' +
+      '<h4>官方题库</h4>侧栏「官方题库渠道」列出智慧教育平台习题库、考试院评析等官方入口与自助导题步骤；本项目不抓取官方题目，你可在官方渠道组卷下载后本地导入。' +
       '<h4>命题趋势</h4>侧栏「命题趋势与版权」记录近五年趋势调研、七类题型与试卷来源核查结论。' +
       '<h4>内容边界</h4>只含书目 / 章节骨架与本项目自撰讲解、题目，不含教材、教辅、真题或模考卷原文；' +
       (st0.original_questions || 0) + ' 道原创高区分度题为手工校订，其余标注「自生成 · 建议教师审核」。' +
@@ -608,6 +660,7 @@
       state.history = []; state.hits = []; $('chat').innerHTML = ''; showWelcome(); setStatus('就绪');
     };
     $('navBrowser').onclick = openBrowser;
+    $('navOfficial').onclick = openOfficial;
     $('navTrends').onclick = openTrends;
     $('navCites').onclick = openDrawer;
     $('closeDrawer').onclick = closeDrawer;
@@ -620,8 +673,10 @@
     $('chapterModal').onclick = function (e) { if (e.target === $('chapterModal')) closeBrowser(); };
     $('closeTrends').onclick = closeTrends;
     $('trendModal').onclick = function (e) { if (e.target === $('trendModal')) closeTrends(); };
+    $('closeOfficial').onclick = closeOfficial;
+    $('officialModal').onclick = function (e) { if (e.target === $('officialModal')) closeOfficial(); };
     document.addEventListener('keydown', function (e) {
-      if (e.key === 'Escape') { closeBrowser(); closeTrends(); closeDrawer(); }
+      if (e.key === 'Escape') { closeBrowser(); closeTrends(); closeOfficial(); closeDrawer(); }
     });
     var st = KG.stats || {};
     var statTxt = (st.textbooks || 0) + ' 种教材 / ' + (st.chapters || 0) + ' 章 / ' + (st.questions || 0) + ' 道题';
@@ -633,6 +688,7 @@
       var view = new URLSearchParams(window.location.search).get('view');
       if (view === 'browser') openBrowser();
       if (view === 'trends') openTrends();
+      if (view === 'official') openOfficial();
     } catch (e) { /* 老浏览器忽略 */ }
   }
   function applySourceUI() {

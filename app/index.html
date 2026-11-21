@@ -6,8 +6,8 @@
 <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate, max-age=0">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>学序 · AI 教学辅导 v0.4.1</title>
-<link rel="stylesheet" href="style.css?v=0.4.1">
+<title>学序 · AI 教学辅导 v0.4.2</title>
+<link rel="stylesheet" href="style.css?v=0.4.2">
 </head>
 <body>
 <div class="app" id="app">
@@ -21,6 +21,7 @@
     <button class="newchat" id="newChat">＋ 新对话</button>
     <nav class="nav">
       <button class="navitem" id="navBrowser">教材章节练习</button>
+      <button class="navitem" id="navOfficial">官方题库渠道</button>
       <button class="navitem" id="navTrends">命题趋势与版权</button>
       <button class="navitem" id="navCites">依据与错题</button>
     </nav>
@@ -57,7 +58,7 @@
         </div>
         <p class="hint" id="apiStatus">默认免费源：Kilo → Pollinations 自动回退；无需 API Key。</p>
       </details>
-      <p class="ver">学序 v0.4.1</p>
+      <p class="ver">学序 v0.4.2</p>
     </div>
   </aside>
 
@@ -149,8 +150,21 @@
     </div>
   </div>
 
-  <!-- 命题趋势与版权说明 -->
-  <div id="trendModal" class="modal hidden">
+<!-- 官方题库渠道 -->
+<div id="officialModal" class="modal hidden">
+  <div class="modal-box">
+    <div class="modal-head">
+      <h3>官方题库渠道 <span class="hint">用户自助获取 · 本项目不抓取官方题目</span></h3>
+      <button class="btn ghost" id="closeOfficial">关闭</button>
+    </div>
+    <div class="modal-body single">
+      <div class="trend-wrap" id="officialBody"></div>
+    </div>
+  </div>
+</div>
+
+<!-- 命题趋势与版权说明 -->
+<div id="trendModal" class="modal hidden">
     <div class="modal-box">
       <div class="modal-head">
         <h3>近五年命题趋势与版权边界 <span class="hint">调研摘要 · 不含试卷原文</span></h3>
@@ -164,8 +178,9 @@
 
 </div>
 
-<script src="knowledge.js?v=0.4.1"></script>
-<script src="trends.js?v=0.4.1"></script>
-<script src="app.js?v=0.4.1"></script>
+<script src="knowledge.js?v=0.4.2"></script>
+<script src="trends.js?v=0.4.2"></script>
+<script src="official.js?v=0.4.2"></script>
+<script src="app.js?v=0.4.2"></script>
 </body>
 </html>

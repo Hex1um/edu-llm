@@ -1,0 +1,108 @@
+{
+  "generated_at": "2026-11-21",
+  "version": "0.4.2",
+  "title": "官方题库渠道索引（用户自助获取，本项目不批量抓取）",
+  "principle": "只登记官方 / 权威渠道入口、覆盖范围与条款，供用户自行登录、组卷、下载并本地导入；本项目不抓取、不镜像、不分发任何官方平台的题目全文。",
+  "verified_quote": {
+    "source": "国家中小学智慧教育平台 · 介绍页",
+    "url": "https://basic.smartedu.cn/introduce",
+    "text": "平台所有资源均免费使用，任何单位及个人不得用于商业行为。",
+    "verified_by": "WebFetch 官网原文 2026-11-21"
+  },
+  "how_to_use": [
+    "在下方渠道登录并按需组卷 / 选题",
+    "用平台自带的「下载」功能导出题目+答案文档（Word / PDF）",
+    "把下载的文件放到本机，用 scripts/pdf_to_text.py 或 scripts/docx_to_text.py 转成纯文本",
+    "在应用侧栏「依据与错题 → 导入自备资料」把文本加入本地检索池（仅本机，不上传、不分发）",
+    "正式使用前按版权与商业授权要求自行确认；本项目不对第三方题目承担权利担保"
+  ],
+  "channels": [
+    {
+      "id": "smartedu_basic_bank",
+      "name": "国家中小学智慧教育平台 · 习题库",
+      "org": "中华人民共和国教育部（教育技术与资源发展中心运维）",
+      "url": "https://basic.smartedu.cn/",
+      "entry": "登录后 → 课程教学 / 应用中心 → 习题库；或首页「习题库」图标",
+      "tier": "C",
+      "coverage": {
+        "同步练习": "小学数学；初中数学/物理/化学；高中数学/物理/化学，按教材版本→年级→册次→章节",
+        "进阶练习": "高中数学 14 个专题：三角函数、数列、概率、导数及应用、解析几何、集合、常用逻辑用语、相等关系与不等关系、基本初等函数、计数原理、统计、平面向量及应用、立体几何、复数",
+        "scale": "习题资源陆续上线约 1.5 万题；平台总资源 8 万余条"
+      },
+      "login_required": true,
+      "download": "支持组卷后下载「仅题目」或「题目+答案」文档，答案文档含正确答案、难易度、知识点；配套解析视频需用智慧中小学 APP 扫码",
+      "terms": "平台所有资源均免费使用，任何单位及个人不得用于商业行为；数字教材版权归各出版机构，平台仅取得信息网络传播权",
+      "our_use": "仅登记入口与操作步骤，用户自助登录后下载；本项目不登录抓取、不批量采集、不分发官方题目",
+      "verified_by": "官网介绍页原文 + 中国教育新闻网 / 澎湃功能教程 2026-11-21"
+    },
+    {
+      "id": "neea_exam_analysis",
+      "name": "教育部教育考试院 · 高考试题评析（《中国考试》）",
+      "org": "教育部教育考试院",
+      "url": "https://cexam.neea.edu.cn/",
+      "entry": "官网期刊《中国考试》→ 历年高考各科目试题评析",
+      "examples": [
+        "https://cexam.neea.edu.cn/CN/abstract/abstract1084.shtml",
+        "https://cexam.neea.edu.cn/CN/abstract/abstract1086.shtml"
+      ],
+      "tier": "A",
+      "coverage": "2024 起逐年发布语文/数学/英语/文综/理综等全国卷试题评析：命题立意、考查要求、题型设计、教学导向",
+      "login_required": false,
+      "download": "公开摘要与评析全文（教研文本），不提供真题全文",
+      "terms": "官方公开发布的教研文本，可阅读与引用观点；引用需标注来源，不得改写成「自有题库」",
+      "our_use": "把评析中的命题观点沉淀为各章「命题视角」讲解与 data/exam_trends.json 趋势依据；只引用思路，不转载题目",
+      "verified_by": "WebFetch 实际页面：2024 英语/文科综合试题评析摘要 2026-11-21"
+    },
+    {
+      "id": "smartedu_higher",
+      "name": "国家高等教育智慧教育平台",
+      "org": "中华人民共和国教育部",
+      "url": "https://higher.smartedu.cn/",
+      "copyright": "https://higher.smartedu.cn/info/copyright",
+      "tier": "C",
+      "coverage": "3.1 万门课程、6.5 万余条资源，14 学科门类 / 92 专业类；含课程习题与作业资源",
+      "login_required": true,
+      "download": "按课程章节在线学习；是否可下载由课程与平台条款决定",
+      "terms": "知识产权声明：禁止建立镜像、禁止复制/抄袭；任何媒体、网站和商业机构不得利用本网站发布的内容",
+      "our_use": "仅作课程/知识点结构核对与入口登记，不抓取课程内容",
+      "verified_by": "项目既有 sources.json 记录 + 官网声明检索"
+    },
+    {
+      "id": "provincial_exam_authorities",
+      "name": "省级教育考试院 · 高考真题与答案发布",
+      "org": "各省级教育招生考试机构",
+      "tier": "C",
+      "channels": [
+        {"name": "浙江省教育考试院", "url": "https://www.zjzs.net/"},
+        {"name": "北京教育考试院", "url": "https://www.bjeea.cn/"},
+        {"name": "天津市教育招生考试院", "url": "https://www.zhaokao.net/"},
+        {"name": "广东省教育考试院", "url": "https://eea.gd.gov.cn/"},
+        {"name": "湖北省教育考试院", "url": "http://www.hbea.edu.cn/"}
+      ],
+      "coverage": "每年高考后发布各科试题与参考答案（多为图片 / PDF，部分经官方公众号发布）",
+      "login_required": false,
+      "download": "以各考试院当年公告为准",
+      "terms": "真题及答案版权归命题机构/出版方；仅可用于个人学习教研，不得批量入库、再分发或商用",
+      "our_use": "仅登记官方发布入口；用户自行查阅，不批量抓取真题全文",
+      "verified_by": "中国教育在线/华禹教育网汇总页检索（标注来源为各省考试院）"
+    },
+    {
+      "id": "pep_textbook_portal",
+      "name": "人民教育出版社 · 教材与配套资源目录",
+      "org": "人民教育出版社",
+      "url": "https://www.pep.com.cn/",
+      "tier": "A",
+      "coverage": "中小学各学科教材目录、电子教材在线阅读与部分配套资源",
+      "login_required": false,
+      "download": "在线阅读为主，按出版社条款",
+      "terms": "教材内容版权归出版社；电子版阅读不等于获得复制/分发权",
+      "our_use": "仅用于书名/版本/册次与章节结构核对（书目级 A 层）",
+      "verified_by": "项目既有 sources.json + 官网检索"
+    }
+  ],
+  "not_included_and_why": [
+    {"channel": "zizzs.com 等第三方试题站", "reason": "用户协议禁止抓取/采集/机器人下载/许可外商用了；PDF 需扫码入群"},
+    {"channel": "学科网 / 组卷网 / 菁优网", "reason": "商业题库，需授权；用户协议限制抓取与再分发"},
+    {"channel": "GAOKAO-Bench 等开源真题仓", "reason": "代码许可不覆盖试题版权，未能证明已获命题方商业授权"}
+  ]
+}
